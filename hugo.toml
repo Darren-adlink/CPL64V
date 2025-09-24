@@ -1,0 +1,39 @@
+baseURL = 'https://darren-adlink.github.io/CPL64V/'
+languageCode = 'zh-tw'
+title = 'HDV62V 產品介紹'
+theme = 'hdv62v-theme'
+
+[params]
+  description = 'HDV62V 高效能視覺檢測系統'
+  author = 'Your Company'
+  
+[menu]
+  [[menu.main]]
+    name = '首頁'
+    url = '/'
+    weight = 1
+  
+  [[menu.main]]
+    name = '硬體介紹'
+    url = '/hardware/'
+    weight = 2
+  
+  [[menu.main]]
+    name = '功能介紹'
+    url = '/features/'
+    weight = 3
+  
+  [[menu.main]]
+    name = 'API 介紹'
+    url = '/api/'
+    weight = 4
+  
+  [[menu.main]]
+    name = 'UI 介紹'
+    url = '/ui/'
+    weight = 5
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
