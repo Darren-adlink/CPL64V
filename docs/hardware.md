@@ -12,10 +12,10 @@ CPL64V (HDV62V) 是一款高效能的硬體裝置，具備以下特點：
 ### 安裝前
 - 插上PCIe卡後，開啟裝置管理員，會看到「其他裝置」底下有「PCI 記憶體控制器」出現黃色驚嘆號（代表尚未安裝驅動）。
 - 如下圖所示：
-  ![](/images/Image1.png)
+  ![](/CPL64V/images/Image1.png)
 
 ### 安裝驅動後
 - 執行 `AVS_SDK_2.1.2.0915_Win-x64.exe` 完成驅動安裝後，裝置管理員會顯示正確的裝置名稱（如 ADLINK Technology Inc. MVP-6200）。
 - 原本的黃色驚嘆號消失。
 - 如下圖所示：
-  ![](/images/Image2.png)
+  ![](/CPL64V/images/Image2.png)
