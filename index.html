@@ -204,6 +204,9 @@
                 }
             }, [mode, divider, targetResMm, paramPhysical, encoderPPR, isSquarePixel, conveyorState.manualDivider]);
 
+            // Re-introduced linesPerRev definition using activeDivider
+            const linesPerRev = useMemo(() => encoderPPR / activeDivider, [encoderPPR, activeDivider]);
+
             // C. Final Resolution (Actual Y)
             const finalResMm = useMemo(() => {
                 if (mode === 'roller') {
@@ -293,8 +296,22 @@
                     newRunCount++;
                 }
 
-                const isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+                // DI0 State Logic
+                let isDi0On = false;
+                
+                if (mode === 'conveyor') {
+                    // Conveyor Mode: Trigger when Item passes center
+                    // Active region: Trigger Point to Trigger Point + Object Length
+                    isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+                } else {
+                    // Roller Mode: Trigger ONCE per revolution (at Home/Index)
+                    // Visual notch is at 0 degrees.
+                    // We light up for a short duration (e.g. 15% of circle) every time we pass 0
+                    const revDist = newDist % circumference;
+                    isDi0On = revDist < (circumference * 0.15); // Active for first 15% of every revolution
+                }
 
+                // --- Visual Updates (Direct DOM) ---
                 if (mode === 'conveyor') {
                     const shiftPercent = (newDist / viewportWidthMm) * 100;
                     if (beltRef.current) beltRef.current.style.backgroundPositionX = `-${shiftPercent}%`;
@@ -303,6 +320,7 @@
                     const angle = (newDist / paramPhysical) * 360;
                     if (wheelRef.current) wheelRef.current.style.transform = `rotate(${angle}deg)`;
                 } else {
+                    // Roller Mode
                     const angle = (newDist / circumference) * 360; 
                     if (rollerRef.current) rollerRef.current.style.transform = `rotate(${angle}deg)`;
                 }
@@ -658,56 +676,82 @@
 
                     {/* Footer Guide Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        
+                        {/* 1. Resolution / Divider Logic */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-blue-400 font-bold text-xs mb-2">Divider Ratio (除頻) 算法</h3>
+                            <h3 className="text-blue-400 font-bold text-xs mb-2">
+                                {mode === 'roller' ? 'Divider (除頻) 設定' : 'Divider (除頻) 反推'}
+                            </h3>
                             <p className="text-slate-400 text-xs mb-2">
-                                {mode === 'conveyor' 
-                                    ? '自動計算：為了讓 Y 軸解析度 (運動) 匹配 X 軸解析度 (FOV)，系統會反推每隔多少個 Encoder Pulse 需觸發一次。' 
-                                    : '手動設定：決定每隔多少個編碼器脈衝觸發一次相機拍攝。'}
+                                {mode === 'roller' 
+                                    ? '滾輪模式下，Divider 是「輸入參數」。決定每隔多少 encoder pulse 觸發一次，進而決定 Y 軸解析度。' 
+                                    : '輸送帶模式下，Divider 是「計算結果」。為了讓 Y 軸解析度匹配 X 軸 (FOV)，系統自動反推除頻數。'}
                             </p>
                             <div className="text-[10px] text-blue-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-blue-900/30">
-                                {mode === 'conveyor' ? (
+                                {mode === 'roller' ? (
                                     <>
-                                        <div>1. 目標解析度 = FOV / Pixels</div>
-                                        <div>2. 原始解析度 = 行程 / PPR</div>
-                                        <div className="text-blue-200 font-bold mt-1">3. Divider = 目標 / 原始</div>
+                                        <div>Lines/Rev = PPR / Divider</div>
+                                        <div className="mt-1">設定越高 -> 解析度越粗 -> 視野越長</div>
                                     </>
                                 ) : (
-                                    'Ratio = 直接輸入值'
+                                    <>
+                                        <div>1. 目標 Res = FOV / Pixels</div>
+                                        <div>2. 原始 Res = Pitch / PPR</div>
+                                        <div className="text-blue-200 font-bold mt-1">3. Divider = 目標 / 原始</div>
+                                    </>
                                 )}
                             </div>
                         </div>
 
+                        {/* 2. Speed / Rate Logic */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-purple-400 font-bold text-xs mb-2">速度與頻率 (Line Rate)</h3>
+                            <h3 className="text-purple-400 font-bold text-xs mb-2">Line Rate (頻率) 算法</h3>
                             <p className="text-slate-400 text-xs mb-2">
-                                決定相機每秒的拍攝次數 (Hz)。速度越快，或解析度設得越細，所需的頻率就越高。
+                                {mode === 'roller'
+                                    ? '滾輪看的是「角速度」。轉得越快，或一圈切得越細，頻率就越高。'
+                                    : '輸送帶看的是「線速度」。跑得越快，或解析度越細(pixel越小)，頻率就越高。'}
                             </p>
                             <div className="text-[10px] text-purple-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-purple-900/30">
-                                <div>1. 速度換算: m/min ÷ 60 × 1000 = mm/s</div>
-                                <div className="text-purple-200 font-bold mt-1">2. Hz = 線速度(mm/s) / 解析度(mm)</div>
+                                {mode === 'roller' ? (
+                                    <>
+                                        <div>1. 轉速 = RPM / 60 (rev/s)</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 轉速 × (PPR/Div)</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>1. 速度換算: m/min → mm/s</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 線速度 / 解析度</div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
+                        {/* 3. Resolution Definition */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-emerald-400 font-bold text-xs mb-2">Frame Height (畫格高度)</h3>
+                            <h3 className="text-emerald-400 font-bold text-xs mb-2">解析度定義 (Resolution)</h3>
                             <p className="text-slate-400 text-xs mb-2">
-                                反推要完整拍下物件，Frame Buffer 至少需要設定多少 Lines。
+                                {mode === 'roller'
+                                    ? '由「圓周長」與「切分數量」決定。這是由硬體規格順推出來的結果。'
+                                    : '由「FOV 視野」與「相機像素」決定。這是由設計目標反推硬體需求的起點。'}
                             </p>
                             <div className="text-[10px] text-emerald-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-emerald-900/30">
-                                <div className="text-emerald-200 font-bold">Lines = 物件長度 / Y軸解析度</div>
-                                <div className="mt-1 opacity-70">設定值需大於此數值以免切圖。</div>
+                                {mode === 'roller' ? (
+                                    <div className="text-emerald-200 font-bold">Res = 圓周長 / (PPR/Div)</div>
+                                ) : (
+                                    <div className="text-emerald-200 font-bold">Target Res = FOV / Pixels</div>
+                                )}
                             </div>
                         </div>
 
+                        {/* 4. Sync Control */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                             <h3 className="text-yellow-400 font-bold text-xs mb-2">同步控制 (Sync)</h3>
+                             <h3 className="text-yellow-400 font-bold text-xs mb-2">Frame Height (畫格高度)</h3>
                              <p className="text-slate-400 text-xs mb-2">
-                                確保 DI0 (Frame Trigger) 與 Encoder (Line Trigger) 相位對齊。
+                                無論哪種模式，都必須確保 Frame Buffer 足夠大，才能容納完整的物件影像。
                              </p>
                              <div className="text-[10px] text-yellow-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-yellow-900/30">
-                                <div>DI0: 決定何時開始錄影 (Frame Start)</div>
-                                <div>Encoder: 決定錄影的速度與比例 (Line Clock)</div>
+                                <div>所需 Lines = 物件長度 / 解析度</div>
+                                <div className="mt-1 text-yellow-500">若 Frame &lt; 所需 Lines 則會切圖</div>
                             </div>
                         </div>
                     </div>
