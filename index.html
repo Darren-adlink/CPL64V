@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Scan Master - 線掃描同步計算實驗室</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons (for icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+        }
+        
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .card-gradient {
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        /* Console Scrollbar */
+        .console-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .console-scroll::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .console-scroll::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 3px;
+        }
+        
+        /* Utility for element centering */
+        .center-abs {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
+
+        // --- 1. Stabilized Animation Loop Hook ---
+        const useAnimationFrame = (callback) => {
+            const callbackRef = useRef(callback);
+            const requestRef = useRef();
+            const previousTimeRef = useRef();
+
+            useLayoutEffect(() => {
+                callbackRef.current = callback;
+            }, [callback]);
+
+            useEffect(() => {
+                const animate = time => {
+                    if (previousTimeRef.current != undefined) {
+                        const deltaTime = time - previousTimeRef.current;
+                        callbackRef.current(deltaTime);
+                    }
+                    previousTimeRef.current = time;
+                    requestRef.current = requestAnimationFrame(animate);
+                }
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, []);
+        };
+
+        function App() {
+            // --- 2. State Management ---
+            const [mode, setMode] = useState('conveyor'); // Default mode
+
+            // -- Mode Specific States (Separated) --
+            const [rollerState, setRollerState] = useState({
+                speed: 1,
+                unit: 'rev_s',
+                diameter: 100, // Roller Diameter
+                length: 150    // Object Length
+            });
+
+            const [conveyorState, setConveyorState] = useState({
+                speed: 3,
+                unit: 'm_min',
+                pitch: 100,    // Travel per Rev
+                length: 75,    // Object Length
+                fov: 200,      // New: FOV Width (mm)
+                manualDivider: 30 // For when Square Pixel is OFF
+            });
+
+            // Toggle for Square Pixel linkage
+            const [isSquarePixel, setIsSquarePixel] = useState(true);
+
+            // Shared Hardware Inputs
+            const [encoderPPR, setEncoderPPR] = useState(360000);
+            const [divider, setDivider] = useState(30); // Manual divider for Roller mode
+            const [frameBufferLines, setFrameBufferLines] = useState(6000); 
+            const [resolution, setResolution] = useState(8192); // Camera Pixels
+            const [bitDepth, setBitDepth] = useState(8);
+
+            // Simulation State (for React UI updates)
+            const [simState, setSimState] = useState({
+                distTraveled: 0,
+                runCount: 1,
+                di0: false
+            });
+            
+            // Simulation Refs (Mutable state for Physics Loop)
+            const simRef = useRef({
+                distTraveled: 0,
+                runCount: 1,
+                di0: false,
+                startTime: 0
+            });
+
+            // DOM Refs
+            const beltRef = useRef(null);
+            const itemRef = useRef(null);
+            const wheelRef = useRef(null); 
+            const rollerRef = useRef(null); 
+
+            // --- 3. Derived Variables based on Mode ---
+            const activeState = mode === 'roller' ? rollerState : conveyorState;
+            
+            const speedValue = activeState.speed;
+            const speedUnit = activeState.unit;
+            const paramPhysical = mode === 'roller' ? activeState.diameter : activeState.pitch;
+            const objectLength = activeState.length;
+            const fovWidth = mode === 'conveyor' ? activeState.fov : 0;
+
+            // Helper to update specific mode state
+            const updateActiveState = (field, value) => {
+                if (mode === 'roller') {
+                    setRollerState(prev => ({ ...prev, [field]: value }));
+                } else {
+                    let key = field;
+                    if (field === 'diameter') key = 'pitch';
+                    setConveyorState(prev => ({ ...prev, [key]: value }));
+                }
+            };
+
+            // Reset Simulation on critical changes
+            useEffect(() => {
+                resetSimulation();
+            }, [mode, speedValue, speedUnit, paramPhysical, objectLength, fovWidth, resolution, encoderPPR, divider, conveyorState.manualDivider, isSquarePixel]);
+
+            const resetSimulation = () => {
+                simRef.current = {
+                    distTraveled: 0,
+                    runCount: 1,
+                    di0: false,
+                    startTime: performance.now()
+                };
+                setSimState({...simRef.current});
+            };
+
+            // --- 4. Core Calculations (Adaptive Logic) ---
+            
+            // A. Target Resolution (mm/pixel) - Crucial for Conveyor
+            const targetResMm = useMemo(() => {
+                if (mode === 'conveyor' && resolution > 0) {
+                    return fovWidth / resolution;
+                }
+                return 0; 
+            }, [mode, fovWidth, resolution]);
+
+            // B. Divider Calculation
+            // Roller: Manual Input
+            // Conveyor: Calculated based on Target Res OR Manual
+            const activeDivider = useMemo(() => {
+                if (mode === 'roller') return divider;
+                
+                // Conveyor Logic
+                if (isSquarePixel) {
+                    // Auto-calculate for Square Pixel
+                    if (encoderPPR > 0 && paramPhysical > 0) {
+                        const rawRes = paramPhysical / encoderPPR;
+                        const calculated = targetResMm / rawRes;
+                        return Math.max(1, Math.round(calculated)); // Integer divider
+                    }
+                    return 1;
+                } else {
+                    // Manual Input (Decoupled)
+                    return conveyorState.manualDivider;
+                }
+            }, [mode, divider, targetResMm, paramPhysical, encoderPPR, isSquarePixel, conveyorState.manualDivider]);
+
+            // Re-introduced linesPerRev definition using activeDivider
+            const linesPerRev = useMemo(() => encoderPPR / activeDivider, [encoderPPR, activeDivider]);
+
+            // C. Final Resolution (Actual Y)
+            const finalResMm = useMemo(() => {
+                if (mode === 'roller') {
+                    const circumference = Math.PI * paramPhysical;
+                    return circumference / (encoderPPR / activeDivider);
+                } else {
+                    // Conveyor
+                    const rawRes = paramPhysical / encoderPPR;
+                    return rawRes * activeDivider;
+                }
+            }, [mode, paramPhysical, encoderPPR, activeDivider]);
+
+            const finalResUm = finalResMm * 1000;
+
+            // D. Speed & Rate
+            const circumference = useMemo(() => mode === 'roller' ? Math.PI * paramPhysical : paramPhysical, [paramPhysical, mode]);
+
+            const encoderRevPerSec = useMemo(() => {
+                if (speedUnit === 'rev_s') return speedValue;
+                if (speedUnit === 'rpm') return speedValue / 60;
+                
+                let linearSpeedMmPerSec = 0;
+                if (speedUnit === 'mm_s') linearSpeedMmPerSec = speedValue;
+                if (speedUnit === 'm_min') linearSpeedMmPerSec = (speedValue * 1000) / 60;
+                
+                if (circumference > 0) return linearSpeedMmPerSec / circumference;
+                return 0;
+            }, [speedValue, speedUnit, circumference]);
+
+            const linearSpeedMmPerSec = useMemo(() => encoderRevPerSec * circumference, [encoderRevPerSec, circumference]);
+            
+            // Line Rate
+            const lineRateHz = useMemo(() => {
+                if (finalResMm > 0) return linearSpeedMmPerSec / finalResMm;
+                return 0;
+            }, [linearSpeedMmPerSec, finalResMm]);
+
+            const linePeriodUs = lineRateHz > 0 ? (1000000 / lineRateHz) : 0;
+            const maxExposureUs = linePeriodUs; 
+            
+            // Bandwidth
+            const bytesPerSec = useMemo(() => (resolution * lineRateHz * bitDepth) / 8, [resolution, lineRateHz, bitDepth]);
+            const throughputMBps = useMemo(() => bytesPerSec / 1000000, [bytesPerSec]);
+
+            // Frame Lines
+            const linesRequiredForObject = useMemo(() => objectLength / finalResMm, [objectLength, finalResMm]);
+            const physicalLengthOfFrame = useMemo(() => frameBufferLines * finalResMm, [frameBufferLines, finalResMm]);
+
+            // Aspect Ratio Check
+            const aspectRatio = useMemo(() => {
+                if (mode === 'roller') return 1;
+                if (targetResMm > 0) return finalResMm / targetResMm;
+                return 1;
+            }, [mode, targetResMm, finalResMm]);
+
+            const clMode = useMemo(() => {
+                if (throughputMBps <= 255) return { name: 'Base', color: 'text-green-400', desc: '單一接頭, 頻寬充裕' };
+                if (throughputMBps <= 510) return { name: 'Medium', color: 'text-yellow-400', desc: '需雙接頭' };
+                if (throughputMBps <= 680) return { name: 'Full', color: 'text-orange-400', desc: '需雙接頭, 8 Tap' };
+                if (throughputMBps <= 850) return { name: 'Deca (80-bit)', color: 'text-red-400', desc: '極限模式, 線材要求高' };
+                return { name: 'Over Limit', color: 'text-red-600', desc: '超過 Camera Link 極限，需 CoaXPress' };
+            }, [throughputMBps]);
+
+            // --- 5. PHYSICS ENGINE ---
+            const VIEWPORT_REVS = 4;
+            const viewportWidthMm = VIEWPORT_REVS * (mode === 'roller' ? circumference : paramPhysical); 
+            
+            const pitch = mode === 'roller' ? circumference : paramPhysical;
+            const rawCycleDist = viewportWidthMm + objectLength;
+            const cycleRevs = Math.ceil(rawCycleDist / pitch); 
+            const cycleDistanceMm = cycleRevs * pitch;
+            const triggerPosMm = viewportWidthMm / 2;
+
+            // Animation Loop
+            useAnimationFrame((deltaTimeMs) => {
+                if (encoderRevPerSec <= 0) return;
+
+                const dtSec = deltaTimeMs / 1000;
+                const dMove = linearSpeedMmPerSec * dtSec; 
+
+                const prevDist = simRef.current.distTraveled;
+                let newDist = prevDist + dMove;
+                let newRunCount = simRef.current.runCount;
+
+                if (newDist >= cycleDistanceMm) {
+                    newDist = newDist % cycleDistanceMm;
+                    newRunCount++;
+                }
+
+                // DI0 State Logic
+                let isDi0On = false;
+                
+                if (mode === 'conveyor') {
+                    // Conveyor Mode: Trigger when Item passes center
+                    // Active region: Trigger Point to Trigger Point + Object Length
+                    isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+                } else {
+                    // Roller Mode: Trigger ONCE per revolution (at Home/Index)
+                    // Visual notch is at 0 degrees.
+                    // We light up for a short duration (e.g. 15% of circle) every time we pass 0
+                    const revDist = newDist % circumference;
+                    isDi0On = revDist < (circumference * 0.15); // Active for first 15% of every revolution
+                }
+
+                // --- Visual Updates (Direct DOM) ---
+                if (mode === 'conveyor') {
+                    const shiftPercent = (newDist / viewportWidthMm) * 100;
+                    if (beltRef.current) beltRef.current.style.backgroundPositionX = `-${shiftPercent}%`;
+                    const leftPercent = ((newDist - objectLength) / viewportWidthMm) * 100;
+                    if (itemRef.current) itemRef.current.style.left = `${leftPercent}%`;
+                    const angle = (newDist / paramPhysical) * 360;
+                    if (wheelRef.current) wheelRef.current.style.transform = `rotate(${angle}deg)`;
+                } else {
+                    // Roller Mode
+                    const angle = (newDist / circumference) * 360; 
+                    if (rollerRef.current) rollerRef.current.style.transform = `rotate(${angle}deg)`;
+                }
+
+                simRef.current.distTraveled = newDist;
+                simRef.current.runCount = newRunCount;
+                simRef.current.di0 = isDi0On;
+
+                if (simState.di0 !== isDi0On || simState.runCount !== newRunCount) {
+                    setSimState(prev => ({ ...prev, distTraveled: newDist, runCount: newRunCount, di0: isDi0On }));
+                }
+            });
+
+            const getItemWidthPercent = () => (objectLength / viewportWidthMm) * 100;
+            const objectArcLength = (objectLength / circumference) * 360; 
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-[1400px] mx-auto pb-12">
+                    
+                    {/* Header */}
+                    <header className="mb-8 border-b border-slate-700 pb-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <i className="ph ph-scan text-4xl text-blue-500"></i>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white tracking-tight">Line Scan Master</h1>
+                                    <p className="text-slate-400 text-sm">線掃描同步計算實驗室 | V3.3 彈性對齊版</p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-800 p-1 rounded-lg flex border border-slate-700">
+                                <button onClick={() => setMode('roller')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'roller' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><i className="ph ph-circle-notch mr-2"></i>滾輪模式</button>
+                                <button onClick={() => setMode('conveyor')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'conveyor' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><i className="ph ph-conveyor-belt mr-2"></i>輸送帶模式</button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                        
+                        {/* LEFT: Inputs */}
+                        <div className="lg:col-span-4 space-y-6">
+                            
+                            {/* Panel 1: Motion */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg">
+                                <h2 className="text-md font-bold mb-4 flex items-center gap-2 text-blue-300 border-b border-slate-700 pb-2">
+                                    <i className="ph ph-engine"></i> 馬達與編碼器
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">{mode === 'roller' ? '滾輪轉速 (Speed)' : '輸送帶速度 (Line Speed)'}</label>
+                                        <div className="flex gap-2">
+                                            <input type="number" value={speedValue} onChange={(e) => updateActiveState('speed', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            <select value={speedUnit} onChange={(e) => updateActiveState('unit', e.target.value)} className="bg-slate-700 border border-slate-600 rounded px-1 text-white text-xs focus:outline-none">
+                                                {mode === 'roller' && <option value="rev_s">rev/s</option>}
+                                                {mode === 'roller' && <option value="rpm">RPM</option>}
+                                                {mode === 'conveyor' && <option value="m_min">m/min</option>}
+                                                {mode === 'conveyor' && <option value="mm_s">mm/s</option>}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-5 gap-3">
+                                        <div className="col-span-2">
+                                            <label className="block text-slate-400 text-xs mb-1">PPR (脈衝/圈)</label>
+                                            <input type="number" value={encoderPPR} onChange={(e) => setEncoderPPR(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                        </div>
+                                        <div className="col-span-3">
+                                            <label className="block text-slate-400 text-xs mb-1 flex justify-between">
+                                                <span>Divider Ratio</span>
+                                                {mode === 'conveyor' && !isSquarePixel && <span className="text-[10px] text-yellow-400 font-bold">*MANUAL</span>}
+                                            </label>
+                                            
+                                            {mode === 'roller' ? (
+                                                <input type="number" value={divider} onChange={(e) => setDivider(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            ) : (
+                                                // Conveyor Mode Input
+                                                isSquarePixel ? (
+                                                    <div className="bg-slate-900/50 border border-slate-600/50 rounded px-2 py-1.5 w-full text-emerald-400 font-mono text-sm font-bold flex items-center justify-between">
+                                                        <span>{activeDivider} (Auto)</span>
+                                                        <i className="ph ph-lock-key text-slate-500 text-xs"></i>
+                                                    </div>
+                                                ) : (
+                                                    <input type="number" value={conveyorState.manualDivider} onChange={(e) => updateActiveState('manualDivider', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-yellow-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-yellow-500 focus:outline-none" />
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Panel 2: Physical */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                                <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl pointer-events-none ${mode === 'conveyor' ? 'from-orange-500/10' : 'from-emerald-500/10'} to-transparent`}></div>
+                                <h2 className={`text-md font-bold mb-4 flex items-center gap-2 ${mode === 'conveyor' ? 'text-orange-300' : 'text-emerald-300'} border-b border-slate-700 pb-2`}>
+                                    <i className="ph ph-ruler"></i> 物理尺寸與 Frame
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">
+                                            {mode === 'roller' ? '滾輪直徑 (Roller Diameter, mm)' : '每圈行程 (Travel/Rev, mm)'}
+                                        </label>
+                                        <input type="number" value={paramPhysical} onChange={(e) => updateActiveState(mode === 'roller' ? 'diameter' : 'pitch', parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-slate-400 text-xs mb-1">物件長度 (mm)</label>
+                                            <input type="number" value={objectLength} onChange={(e) => updateActiveState('length', parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-slate-400 text-xs mb-1">Frame Lines</label>
+                                            <input type="number" value={frameBufferLines} onChange={(e) => setFrameBufferLines(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Panel 3: Camera */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg">
+                                <h2 className="text-md font-bold mb-4 flex items-center gap-2 text-purple-300 border-b border-slate-700 pb-2">
+                                    <i className="ph ph-camera"></i> 相機規格
+                                </h2>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">寬度 (Pixels)</label>
+                                        <input type="number" value={resolution} onChange={(e) => setResolution(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">Bit Depth</label>
+                                        <select value={bitDepth} onChange={(e) => setBitDepth(parseFloat(e.target.value))} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-500 focus:outline-none">
+                                            <option value={8}>8-bit</option>
+                                            <option value={10}>10-bit</option>
+                                            <option value={12}>12-bit</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                {mode === 'conveyor' && (
+                                    <div className={`p-2 rounded border transition-colors ${isSquarePixel ? 'bg-purple-900/30 border-purple-500/50' : 'bg-slate-800 border-slate-600'}`}>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="text-purple-300 text-xs font-bold">FOV 視野寬度 (mm)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSquarePixel} 
+                                                    onChange={(e) => setIsSquarePixel(e.target.checked)} 
+                                                    className="w-3 h-3 accent-purple-500"
+                                                />
+                                                <span className="text-[10px] text-slate-400">鎖定正方形像素</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <input type="number" value={conveyorState.fov} onChange={(e) => updateActiveState('fov', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-400 focus:outline-none" />
+                                            <div className="flex flex-col text-[10px] leading-tight">
+                                                <span className="text-slate-400">X-Res: {targetResMm.toFixed(3)} mm</span>
+                                                <span className={`${Math.abs(aspectRatio-1) < 0.05 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    Y-Res: {finalResMm.toFixed(3)} mm
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* MIDDLE: Visuals & Debug */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                            
+                            {/* Visualizer */}
+                            <div className="bg-slate-900 rounded-xl border border-slate-800 relative overflow-hidden h-[320px] flex items-center justify-center">
+                                <div className="absolute top-3 left-3 text-slate-500 text-xs font-mono z-10">
+                                    <div>{mode === 'roller' ? 'ROLLER' : 'CONVEYOR'} SIMULATION</div>
+                                    <div>RUN: {simState.runCount}</div>
+                                </div>
+
+                                {mode === 'conveyor' && (
+                                <div className="w-full h-full relative overflow-hidden flex flex-col items-center justify-center">
+                                    {/* Sensor */}
+                                    <div className="absolute top-[80px] z-20 flex flex-col items-center">
+                                        <div className="text-[10px] text-orange-300 font-mono mb-1">DI0</div>
+                                        <div className={`w-4 h-6 bg-slate-700 border border-orange-500 rounded-b flex items-center justify-center shadow-lg transition-colors duration-75 ${simState.di0 ? 'bg-orange-500 shadow-[0_0_15px_#f59e0b]' : ''}`}>
+                                            <div className={`w-2 h-2 rounded-full ${simState.di0 ? 'bg-white' : 'bg-orange-900/50'}`}></div>
+                                        </div>
+                                        <div className="w-0.5 h-[60px] bg-orange-500/30"></div>
+                                    </div>
+
+                                    {/* Conveyor */}
+                                    <div className="relative w-full max-w-[90%] h-[40px] bg-slate-800 rounded-full border border-slate-600 mt-10 overflow-hidden">
+                                        {/* Grid: 5 Grids per Rev */}
+                                        <div ref={beltRef} className="w-full h-full" 
+                                             style={{ 
+                                                 backgroundImage: 'linear-gradient(90deg, transparent 95%, #475569 95%)', 
+                                                 backgroundSize: '5% 100%' 
+                                             }}>
+                                        </div>
+                                        {/* Item */}
+                                        <div ref={itemRef} className="absolute top-2 h-[24px] bg-emerald-600/80 rounded border border-emerald-400 flex items-center justify-center text-[10px] text-white font-mono"
+                                             style={{ width: getItemWidthPercent() + '%' }}>
+                                            ITEM
+                                        </div>
+                                    </div>
+
+                                    {/* Encoder Wheel */}
+                                    <div className="absolute right-[5%] mt-10 w-16 h-16 flex items-center justify-center">
+                                        <div ref={wheelRef} className="w-full h-full rounded-full border-4 border-slate-600 relative bg-slate-800">
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-4 bg-red-500"></div>
+                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-slate-400 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                )}
+
+                                {mode === 'roller' && (
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ top: '30px' }}>
+                                        <div className="text-[10px] text-slate-400 font-mono mb-1">DI0 (Home)</div>
+                                        <div className={`w-4 h-6 bg-slate-700 border border-slate-500 rounded-b flex items-center justify-center shadow-lg transition-colors duration-75 ${simState.di0 ? 'bg-orange-500' : ''}`}>
+                                            <div className={`w-2 h-2 rounded-full ${simState.di0 ? 'bg-white' : 'bg-red-900'}`}></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="absolute right-[40px] top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <div className="w-2 h-2 rounded-full bg-red-500 opacity-50 animate-pulse"></div>
+                                        <span className="text-[10px] text-red-400 font-mono">CC1</span>
+                                    </div>
+
+                                    <div ref={rollerRef} className="w-[240px] h-[240px]">
+                                        <svg width="240" height="240" viewBox="0 0 240 240">
+                                            <g transform="translate(120, 120)">
+                                                <circle cx="0" cy="0" r="90" fill="#334155" stroke="#475569" strokeWidth="2" />
+                                                <circle cx="0" cy="0" r="20" fill="#1e293b" />
+                                                <line x1="0" y1="-90" x2="0" y2="90" stroke="#64748b" strokeWidth="1" strokeDasharray="5 5" />
+                                                <line x1="-90" y1="0" x2="90" y2="0" stroke="#64748b" strokeWidth="1" strokeDasharray="5 5" />
+                                                <rect x="-4" y="-94" width="8" height="12" fill="#eab308" />
+                                                {objectLength > 0 && (
+                                                    <path 
+                                                        d={`M 0,-90 A 90,90 0 ${objectArcLength > 180 ? 1 : 0},1 ${90 * Math.sin(objectArcLength * Math.PI / 180)}, ${-90 * Math.cos(objectArcLength * Math.PI / 180)}`}
+                                                        fill="none" stroke="#10b981" strokeWidth="12" strokeOpacity="0.6" transform="rotate(10)" 
+                                                    />
+                                                )}
+                                                <text x="0" y="-50" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">Roller</text>
+                                            </g>
+                                        </svg>
+                                    </div>
+                                </div>
+                                )}
+                            </div>
+
+                            {/* Frame Coverage Card */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg flex-grow flex flex-col justify-center">
+                                <h3 className={`text-sm font-bold ${mode === 'conveyor' ? 'text-orange-300' : 'text-emerald-300'} mb-3 flex items-center justify-between`}>
+                                    <span>Frame 覆蓋分析</span>
+                                    <span className={`text-xs ${mode === 'conveyor' ? 'bg-orange-900/50 text-orange-200' : 'bg-emerald-900/50 text-emerald-200'} px-2 py-1 rounded`}>反推計算</span>
+                                </h3>
+                                <div className="flex justify-between items-center mb-3 text-sm">
+                                    <span className="text-slate-400">Y 軸解析度:</span>
+                                    <span className="font-mono text-white">{finalResUm.toFixed(2)} μm/line</span>
+                                </div>
+                                <div className="flex justify-between items-center mb-3 text-sm">
+                                    <span className="text-slate-400">物件 ({objectLength}mm) 需:</span>
+                                    <span className="font-mono text-yellow-300 font-bold">{Math.ceil(linesRequiredForObject).toLocaleString()} lines</span>
+                                </div>
+                                <div className="border-t border-slate-700 my-2"></div>
+                                <div className="flex justify-between items-center mb-2 text-sm">
+                                    <span className="text-slate-400">Frame ({frameBufferLines}) 覆蓋:</span>
+                                    <span className="font-mono text-white">{physicalLengthOfFrame.toFixed(2)} mm</span>
+                                </div>
+                                <div className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${physicalLengthOfFrame >= objectLength ? 'bg-green-900/30 text-green-300 border border-green-800' : 'bg-red-900/30 text-red-300 border border-red-800'}`}>
+                                    {physicalLengthOfFrame >= objectLength 
+                                        ? <><i className="ph ph-check-circle text-lg"></i> 設定足夠！</>
+                                        : <><i className="ph ph-warning text-lg"></i> Frame Lines 不足！缺 {Math.abs(physicalLengthOfFrame - objectLength).toFixed(1)}mm</>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Results */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                            {/* Card 1: Line Rate */}
+                            <div className="bg-gradient-to-br from-blue-900/50 to-slate-800 border border-blue-800 rounded-xl p-5 shadow-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="text-blue-200 text-sm font-medium mb-1">Line Rate (掃描頻率)</div>
+                                        <div className="text-4xl font-bold text-white font-mono">
+                                            {(lineRateHz / 1000).toFixed(2)} <span className="text-lg text-blue-300">kHz</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-wave-sine text-3xl text-blue-500"></i>
+                                </div>
+                                <div className="mt-3 text-xs text-blue-200/60 bg-blue-900/30 p-2 rounded">
+                                    {mode === 'roller' ? (
+                                        <div className="flex justify-between mb-1 text-blue-300">
+                                            <span>每圈線數 (PPR ÷ Div):</span>
+                                            <span className="font-mono">{encoderPPR} ÷ {activeDivider} = {Math.round(linesPerRev).toLocaleString()}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-between mb-1 text-blue-300">
+                                            <span>解析度 (FOV ÷ Pixels):</span>
+                                            <span className="font-mono">{targetResMm.toFixed(3)} mm</span>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="pt-1 border-t border-blue-500/30 text-blue-100 flex justify-between items-center">
+                                        <span>
+                                            {mode === 'roller' ? '頻率 (Rev/s × Lines):' : '頻率 (速度 ÷ 解析度):'}
+                                        </span>
+                                        <span className="font-mono">
+                                            {mode === 'roller' 
+                                                ? `${encoderRevPerSec.toFixed(2)} × ${Math.round(linesPerRev).toLocaleString()}`
+                                                : `${linearSpeedMmPerSec.toFixed(1)} ÷ ${targetResMm.toFixed(3)}`
+                                            }
+                                            = <span className="font-bold text-white">{Math.round(lineRateHz).toLocaleString()} Hz</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card 2: Max Exposure */}
+                            <div className="bg-gradient-to-br from-purple-900/50 to-slate-800 border border-purple-800 rounded-xl p-5 shadow-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="text-purple-200 text-sm font-medium mb-1">Max Exposure (最大曝光)</div>
+                                        <div className={`text-4xl font-bold font-mono ${maxExposureUs < 5 ? 'text-red-400' : 'text-white'}`}>
+                                            {maxExposureUs.toFixed(2)} <span className="text-lg text-purple-300">μs</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-timer text-3xl text-purple-500"></i>
+                                </div>
+                                <div className="mt-3 text-xs text-purple-200/60 bg-purple-900/30 p-2 rounded">
+                                    <div className="mb-1 text-purple-200">週期算式 (物理極限):</div>
+                                    <div>1,000,000 ÷ {Math.round(lineRateHz)} Hz = <span className="font-bold text-white">{linePeriodUs.toFixed(2)} μs</span></div>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Bandwidth */}
+                            <div className="bg-gradient-to-br from-emerald-900/50 to-slate-800 border border-emerald-800 rounded-xl p-5 shadow-lg flex-grow">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="text-emerald-200 text-sm font-medium mb-1">Data Throughput</div>
+                                        <div className="text-3xl font-bold text-white font-mono">
+                                            {throughputMBps.toFixed(1)} <span className="text-lg text-emerald-300">MB/s</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-cable text-3xl text-emerald-500"></i>
+                                </div>
+                                <div className="border-t border-emerald-800/50 my-3"></div>
+                                <div>
+                                    <div className="text-emerald-200 text-xs font-medium mb-1">Camera Link Mode</div>
+                                    <div className={`text-xl font-bold ${clMode.color} font-mono`}>{clMode.name}</div>
+                                    <div className="text-xs text-slate-400 mt-1">{clMode.desc}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Guide Sections */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        
+                        {/* 1. Resolution / Divider Logic */}
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-blue-400 font-bold text-xs mb-2">
+                                {mode === 'roller' ? 'Divider (除頻) 設定' : 'Divider (除頻) 反推'}
+                            </h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller' 
+                                    ? '滾輪模式下，Divider 是「輸入參數」。決定每隔多少 encoder pulse 觸發一次，進而決定 Y 軸解析度。' 
+                                    : '輸送帶模式下，Divider 是「計算結果」。為了讓 Y 軸解析度匹配 X 軸 (FOV)，系統自動反推除頻數。'}
+                            </p>
+                            <div className="text-[10px] text-blue-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-blue-900/30">
+                                {mode === 'roller' ? (
+                                    <>
+                                        <div>Lines/Rev = PPR / Divider</div>
+                                        <div className="mt-1">設定越高 -> 解析度越粗 -> 視野越長</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>1. 目標 Res = FOV / Pixels</div>
+                                        <div>2. 原始 Res = Pitch / PPR</div>
+                                        <div className="text-blue-200 font-bold mt-1">3. Divider = 目標 / 原始</div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 2. Speed / Rate Logic */}
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-purple-400 font-bold text-xs mb-2">Line Rate (頻率) 算法</h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller'
+                                    ? '滾輪看的是「角速度」。轉得越快，或一圈切得越細，頻率就越高。'
+                                    : '輸送帶看的是「線速度」。跑得越快，或解析度越細(pixel越小)，頻率就越高。'}
+                            </p>
+                            <div className="text-[10px] text-purple-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-purple-900/30">
+                                {mode === 'roller' ? (
+                                    <>
+                                        <div>1. 轉速 = RPM / 60 (rev/s)</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 轉速 × (PPR/Div)</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>1. 速度換算: m/min → mm/s</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 線速度 / 解析度</div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 3. Resolution Definition */}
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-emerald-400 font-bold text-xs mb-2">解析度定義 (Resolution)</h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller'
+                                    ? '由「圓周長」與「切分數量」決定。這是由硬體規格順推出來的結果。'
+                                    : '由「FOV 視野」與「相機像素」決定。這是由設計目標反推硬體需求的起點。'}
+                            </p>
+                            <div className="text-[10px] text-emerald-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-emerald-900/30">
+                                {mode === 'roller' ? (
+                                    <div className="text-emerald-200 font-bold">Res = 圓周長 / (PPR/Div)</div>
+                                ) : (
+                                    <div className="text-emerald-200 font-bold">Target Res = FOV / Pixels</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. Sync Control */}
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                             <h3 className="text-yellow-400 font-bold text-xs mb-2">Frame Height (畫格高度)</h3>
+                             <p className="text-slate-400 text-xs mb-2">
+                                無論哪種模式，都必須確保 Frame Buffer 足夠大，才能容納完整的物件影像。
+                             </p>
+                             <div className="text-[10px] text-yellow-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-yellow-900/30">
+                                <div>所需 Lines = 物件長度 / 解析度</div>
+                                <div className="mt-1 text-yellow-500">若 Frame &lt; 所需 Lines 則會切圖</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
