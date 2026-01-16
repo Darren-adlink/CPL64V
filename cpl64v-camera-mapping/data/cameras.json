@@ -4,19 +4,21 @@
     "model": "la-cc-08k05b",
     "key": "ikap_la-cc-08k05b",
     "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/ikap/la-cc-08k05b/ikap_la-cc-08k05b_1768544109591.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraMode.png",
     "params": [
       {
-        "name": "Scan-Type",
-        "cpl_setting": "",
+        "name": "Camera-Type",
+        "cpl_setting": "ScanMode",
         "desc": "",
         "roi": {
           "x": 348.01851606653105,
           "y": 441.14601021573196,
           "w": 147.97637691017854,
           "h": 52.065762246173904
-        }
+        },
+        "cam_setting": "Scan Type"
       }
     ],
-    "updatedAt": "2026-01-16T06:15:11.793Z"
+    "updatedAt": "2026-01-16T07:00:22.479Z"
   }
 }
