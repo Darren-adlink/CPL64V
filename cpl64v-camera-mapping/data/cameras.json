@@ -42,5 +42,28 @@
       }
     ],
     "updatedAt": "2026-01-16T07:36:20.555Z"
+  },
+  "ikap_la-cc-08k05b_scanmode": {
+    "brand": "iKap",
+    "model": "LA-CC-08K05B",
+    "variant": "scanmode",
+    "key": "ikap_la-cc-08k05b_scanmode",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/scanmode_1768549819267.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraMode.png",
+    "params": [
+      {
+        "name": "Cmaera Mode",
+        "cam_setting": "Scan Type",
+        "cpl_setting": "ScanMode",
+        "desc": "Area/Line Scan",
+        "roi": {
+          "x": 347.4350543642005,
+          "y": 438.5071161891448,
+          "w": 150.70643682775489,
+          "h": 55.745176633062044
+        }
+      }
+    ],
+    "updatedAt": "2026-01-16T07:50:21.190Z"
   }
 }
