@@ -1,48 +1,4 @@
 {
-  "ikap_la-cc-08k05b": {
-    "brand": "iKap",
-    "model": "LA-CC-08K05B",
-    "key": "ikap_la-cc-08k05b",
-    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/ikap_la-cc-08k05b_1768548376991.png",
-    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-PixelSzie.png",
-    "params": [
-      {
-        "name": "Image Format",
-        "cam_setting": "Data Format ",
-        "cpl_setting": "PixelSize",
-        "desc": "",
-        "roi": {
-          "x": 346.10526315789474,
-          "y": 465.47368421052636,
-          "w": 156.63157894736844,
-          "h": 106.10526315789468
-        }
-      }
-    ],
-    "updatedAt": "2026-01-16T07:26:19.348Z"
-  },
-  "ikap_la-cc-08k05b_frame_type": {
-    "brand": "iKap",
-    "model": "LA-CC-08K05B",
-    "key": "ikap_la-cc-08k05b_frame_type",
-    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/ikap_la-cc-08k05b_frame_type_1768548978506.png",
-    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraMode.png",
-    "params": [
-      {
-        "name": "CameraMode",
-        "cam_setting": "Scan Type",
-        "cpl_setting": "ScanMode",
-        "desc": "Area/Line Scan",
-        "roi": {
-          "x": 345.10153534235144,
-          "y": 438.04365338341654,
-          "w": 152.55056505474397,
-          "h": 56.4711603287484
-        }
-      }
-    ],
-    "updatedAt": "2026-01-16T07:36:20.555Z"
-  },
   "ikap_la-cc-08k05b_scanmode": {
     "brand": "iKap",
     "model": "LA-CC-08K05B",
