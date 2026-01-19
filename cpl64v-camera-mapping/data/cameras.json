@@ -88,5 +88,15 @@
       }
     ],
     "updatedAt": "2026-01-16T07:51:32.215Z"
+  },
+  "ikap_la-cc-08k05b_pixelformat": {
+    "brand": "iKap",
+    "model": "LA-CC-08K05B",
+    "variant": "pixelformat",
+    "key": "ikap_la-cc-08k05b_pixelformat",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/pixelformat_1768789984592.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Format.png",
+    "params": [],
+    "updatedAt": "2026-01-19T02:33:06.696Z"
   }
 }
