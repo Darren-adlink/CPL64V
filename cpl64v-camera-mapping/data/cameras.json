@@ -52,7 +52,20 @@
     "key": "ikap_la-cc-08k05b_pixelformat",
     "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/pixelformat_1768789984592.png",
     "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Format.png",
-    "params": [],
-    "updatedAt": "2026-01-19T02:33:06.696Z"
+    "params": [
+      {
+        "name": "Mono/Color",
+        "cam_setting": "Image Type ",
+        "cpl_setting": "Pixel Format",
+        "desc": "",
+        "roi": {
+          "x": 344,
+          "y": 488,
+          "w": 163.3520822836041,
+          "h": 140.3948511219678
+        }
+      }
+    ],
+    "updatedAt": "2026-01-19T07:09:17.482Z"
   }
 }
