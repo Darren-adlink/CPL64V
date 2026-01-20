@@ -67,5 +67,28 @@
       }
     ],
     "updatedAt": "2026-01-19T07:09:17.482Z"
+  },
+  "ikap_la-cc-08k05b_trigger_mode_CC1": {
+    "brand": "iKap",
+    "model": "LA-CC-08K05B",
+    "variant": "trigger_mode_CC1",
+    "key": "ikap_la-cc-08k05b_trigger_mode_CC1",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/trigger_mode_CC1_1768886669474.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1OutputMode.png",
+    "params": [
+      {
+        "name": "Trigger Mode ",
+        "cam_setting": "Working Mode",
+        "cpl_setting": "Port0CC1OutputMode",
+        "desc": "Both the software and hardware modes of CPL64V support free-run mode from the camera.",
+        "roi": {
+          "x": 344.9327296096209,
+          "y": 595.9985196861318,
+          "w": 153.80606959642108,
+          "h": 64.46283799261766
+        }
+      }
+    ],
+    "updatedAt": "2026-01-20T05:24:31.543Z"
   }
 }
