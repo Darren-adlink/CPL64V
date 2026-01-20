@@ -90,5 +90,28 @@
       }
     ],
     "updatedAt": "2026-01-20T05:24:31.543Z"
+  },
+  "ikap_la-cc-08k05b_tap": {
+    "brand": "iKap",
+    "model": "LA-CC-08K05B",
+    "variant": "tap",
+    "key": "ikap_la-cc-08k05b_tap",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/tap_1768886740381.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Tap.png",
+    "params": [
+      {
+        "name": "Tap ",
+        "cam_setting": "Tap Number ",
+        "cpl_setting": "Tap",
+        "desc": "",
+        "roi": {
+          "x": 346.21067709964996,
+          "y": 384.52648326087603,
+          "w": 120.76321049029292,
+          "h": 135.47374321290647
+        }
+      }
+    ],
+    "updatedAt": "2026-01-20T05:25:42.281Z"
   }
 }
