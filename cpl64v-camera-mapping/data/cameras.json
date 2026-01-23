@@ -113,28 +113,5 @@
       }
     ],
     "updatedAt": "2026-01-20T05:25:42.281Z"
-  },
-  "hikrobot_la-cc-08k05b_tap": {
-    "brand": "Hikrobot",
-    "model": "LA-CC-08K05B",
-    "variant": "tap",
-    "key": "hikrobot_la-cc-08k05b_tap",
-    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/Hikrobot/LA-CC-08K05B/tap_1769134525650.png",
-    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Tap.png",
-    "params": [
-      {
-        "name": "Tap 資料排列",
-        "cam_setting": "Tap Arrangemnet ",
-        "cpl_setting": "Null",
-        "desc": "目前CPL64V只支援1X8. ",
-        "roi": {
-          "x": 349.3333333333333,
-          "y": 413.3333333333333,
-          "w": 147.66666666666669,
-          "h": 130.66666666666669
-        }
-      }
-    ],
-    "updatedAt": "2026-01-23T02:15:27.661Z"
   }
 }
