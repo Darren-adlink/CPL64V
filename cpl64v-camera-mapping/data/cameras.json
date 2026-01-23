@@ -96,22 +96,22 @@
     "model": "LA-CC-08K05B",
     "variant": "tap",
     "key": "ikap_la-cc-08k05b_tap",
-    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/tap_1768886740381.png",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/iKap/LA-CC-08K05B/tap_1769135101637.png",
     "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Tap.png",
     "params": [
       {
-        "name": "Tap ",
-        "cam_setting": "Tap Number ",
-        "cpl_setting": "Tap",
-        "desc": "",
+        "name": "Tap 排列組合",
+        "cam_setting": "Tap Arrangement ",
+        "cpl_setting": "Null",
+        "desc": "目前只支援1X10",
         "roi": {
-          "x": 346.21067709964996,
-          "y": 384.52648326087603,
-          "w": 120.76321049029292,
-          "h": 135.47374321290647
+          "x": 345.3333333333333,
+          "y": 412,
+          "w": 146.33333333333337,
+          "h": 101.33333333333337
         }
       }
     ],
-    "updatedAt": "2026-01-20T05:25:42.281Z"
+    "updatedAt": "2026-01-23T02:25:04.036Z"
   }
 }
