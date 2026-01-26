@@ -103,7 +103,13 @@
         "name": "Tap",
         "cam_setting": "Tap Number ",
         "cpl_setting": "Tap",
-        "desc": "目前止支援Tap Arrangement：1x4、1x8、1x10",
+        "desc": {
+          "en": "",
+          "zh_TW": "目前止支援Tap Arrangement：1x4、1x8、1x10",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
         "roi": {
           "x": 350.6666666666667,
           "y": 384,
@@ -112,6 +118,6 @@
         }
       }
     ],
-    "updatedAt": "2026-01-26T03:39:21.195Z"
+    "updatedAt": "2026-01-26T06:00:01.634Z"
   }
 }
