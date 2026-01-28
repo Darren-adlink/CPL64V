@@ -85,5 +85,34 @@
       }
     ],
     "updatedAt": "2026-01-28T03:38:20.919Z"
+  },
+  "i-tek_la-cc-08k05b_trigger_mode_CC1": {
+    "brand": "I-Tek",
+    "model": "LA-CC-08K05B",
+    "variant": "trigger_mode_CC1",
+    "key": "i-tek_la-cc-08k05b_trigger_mode_CC1",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/I-Tek/LA-CC-08K05B/trigger_mode_CC1_1769571704939.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1OutputMode.png",
+    "params": [
+      {
+        "name": "Trigger Mode",
+        "cam_setting": "Working Mode",
+        "cpl_setting": "PortCC1OutputMode",
+        "desc": {
+          "en": "Although the CPL64V only supports Trigger and Manual modes, both support camera free-run operation.",
+          "zh_TW": "",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
+        "roi": {
+          "x": 348.78740296478674,
+          "y": 600.7681799214137,
+          "w": 151.83113033188891,
+          "h": 55.632780579623386
+        }
+      }
+    ],
+    "updatedAt": "2026-01-28T03:41:46.790Z"
   }
 }
