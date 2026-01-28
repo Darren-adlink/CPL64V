@@ -1,0 +1,31 @@
+{
+  "i-tek_la-cc-08k05b_scanmode": {
+    "brand": "I-Tek",
+    "model": "LA-CC-08K05B",
+    "variant": "scanmode",
+    "key": "i-tek_la-cc-08k05b_scanmode",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/I-Tek/LA-CC-08K05B/scanmode_1769570408252.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraMode.png",
+    "params": [
+      {
+        "name": "Area/Line",
+        "cam_setting": "Scan Type",
+        "cpl_setting": "ScanMode",
+        "desc": {
+          "en": "Area/Line",
+          "zh_TW": "",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
+        "roi": {
+          "x": 348.2352941176471,
+          "y": 437.81512605042013,
+          "w": 150.58823529411762,
+          "h": 59.159663865546236
+        }
+      }
+    ],
+    "updatedAt": "2026-01-28T03:20:10.177Z"
+  }
+}
