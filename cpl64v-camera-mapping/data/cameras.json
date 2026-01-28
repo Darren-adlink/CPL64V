@@ -56,5 +56,34 @@
       }
     ],
     "updatedAt": "2026-01-28T03:22:24.078Z"
+  },
+  "i-tek_la-cc-08k05b_pixelformat": {
+    "brand": "I-Tek",
+    "model": "LA-CC-08K05B",
+    "variant": "pixelformat",
+    "key": "i-tek_la-cc-08k05b_pixelformat",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/I-Tek/LA-CC-08K05B/pixelformat_1769571498938.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Format.png",
+    "params": [
+      {
+        "name": "Color/Mono",
+        "cam_setting": "Image Type",
+        "cpl_setting": "PixelFormat",
+        "desc": {
+          "en": "Only supports RGB/Mono.",
+          "zh_TW": "",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
+        "roi": {
+          "x": 346.74982641452095,
+          "y": 490.43212090936413,
+          "w": 153.2842926208972,
+          "h": 132.90545602967973
+        }
+      }
+    ],
+    "updatedAt": "2026-01-28T03:38:20.919Z"
   }
 }
