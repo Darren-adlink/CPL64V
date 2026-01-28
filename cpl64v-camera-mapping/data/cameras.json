@@ -27,5 +27,34 @@
       }
     ],
     "updatedAt": "2026-01-28T03:20:10.177Z"
+  },
+  "i-tek_la-cc-08k05b_pixelsize": {
+    "brand": "I-Tek",
+    "model": "LA-CC-08K05B",
+    "variant": "pixelsize",
+    "key": "i-tek_la-cc-08k05b_pixelsize",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/I-Tek/LA-CC-08K05B/pixelsize_1769570542581.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-PixelSzie.png",
+    "params": [
+      {
+        "name": "Pixel-bit",
+        "cam_setting": "Data Format",
+        "cpl_setting": "PixelSize",
+        "desc": {
+          "en": "8、10、12 bit",
+          "zh_TW": "",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
+        "roi": {
+          "x": 346.89075630252097,
+          "y": 463.3613445378151,
+          "w": 150.92436974789916,
+          "h": 102.18487394957987
+        }
+      }
+    ],
+    "updatedAt": "2026-01-28T03:22:24.078Z"
   }
 }
