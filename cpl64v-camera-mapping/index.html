@@ -6,14 +6,28 @@
     <title>CPL64V Portal</title>
     <style>
         body { margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        header { background: #1e293b; color: white; padding: 0 20px; height: 50px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; flex-shrink: 0; }
+        
+        /* Header */
+        header { 
+            background: #1e293b; color: white; padding: 0 20px; height: 50px; 
+            display: flex; align-items: center; justify-content: space-between; 
+            border-bottom: 1px solid #334155; flex-shrink: 0;
+        }
         h1 { margin: 0; font-size: 18px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+        
+        /* Layout */
         .main-container { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Sidebar */
         .sidebar-list { width: 320px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
         .filter-section { padding: 15px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; }
         .filter-label { font-size: 11px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
         .filter-select { width: 100%; background: #334155; color: white; border: 1px solid #475569; padding: 8px; border-radius: 6px; font-size: 14px; outline: none; }
+        .filter-select:disabled { opacity: 0.5; cursor: not-allowed; }
+        .filter-select:focus { border-color: #2563eb; }
         .list-header { padding: 10px 15px; color: #64748b; font-size: 11px; font-weight: bold; background: #162032; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
+        
+        /* List */
         .camera-list { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
         .camera-item { padding: 12px 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: background 0.2s; display: flex; gap: 12px; align-items: center; }
         .camera-item:hover { background: #334155; }
@@ -24,21 +38,33 @@
         .info-variant { font-size: 14px; color: #e2e8f0; font-weight: 500; }
         .info-meta { font-size: 11px; color: #94a3b8; }
         .list-empty { padding: 30px 20px; text-align: center; color: #64748b; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+        /* Content Area */
         .content-area { flex: 1; display: flex; position: relative; background: #0f172a; }
         .panel-source { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; border-right: 1px solid #334155; background: #0f172a; }
         .panel-target { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #0f172a; }
+        
+        /* UI Elements */
         .panel-label { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 5; border: 1px solid rgba(255,255,255,0.1); }
         .loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(15,23,42,0.9); color: white; display: flex; justify-content: center; align-items: center; z-index: 20; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
         .loading-overlay.active { opacity: 1; pointer-events: all; }
+        
+        /* Footer Info */
         .info-footer { height: 140px; background: #1e293b; color: #e2e8f0; padding: 20px 30px; flex-shrink: 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: center; }
         .info-title { font-size: 18px; font-weight: bold; color: #60a5fa; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
         .info-mapping { font-size: 14px; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-weight: normal; }
         .info-desc { font-size: 14px; color: #94a3b8; line-height: 1.6; max-width: 800px; white-space: pre-wrap; }
         .info-placeholder { color: #475569; font-style: italic; }
+
+        /* Misc */
         .right-container { flex: 1; display: flex; flex-direction: column; background: #0f172a; overflow: hidden; }
         .images-row { flex: 1; display: flex; overflow: hidden; border-bottom: 1px solid #334155; }
         .demo-badge { background: #f59e0b; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 10px; display: none; }
-        .visitor-count { font-size: 12px; color: #94a3b8; background: #334155; padding: 4px 10px; border-radius: 20px; border: 1px solid #475569; display: flex; align-items: center; gap: 5px; }
+        
+        /* 訪客計數器容器 */
+        .visitor-count-container { font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 20px; background: #334155; border: 1px solid #475569;}
+        .visitor-badge { display: block; height: 20px; }
+
         .lang-select { background: #334155; color: white; border: 1px solid #475569; padding: 4px 8px; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; }
         .scanning-text { animation: pulse 1.5s infinite; color: #2563eb; font-weight: bold; }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
@@ -49,8 +75,15 @@
 <header>
     <h1>🎯 CPL64V Portal <span id="demoBadge" class="demo-badge">Demo</span></h1>
     <div style="display:flex; align-items:center; gap:15px;">
-        <div class="visitor-count" title="Unique Visitor Count">👀 <span id="visitorCount">...</span></div>
+        
+        <!-- 訪客計數器 (無 Firebase 版本) -->
+        <div class="visitor-count-container" title="Total Views">
+            <span>Views:</span>
+            <div id="visitorBadge">Loading...</div>
+        </div>
+
         <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:12px; color:#94a3b8;">v8.0 No-Firebase</span>
             <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
                 <option value="en">English</option>
                 <option value="zh_TW" selected>繁體中文</option>
@@ -63,6 +96,8 @@
 </header>
 
 <div class="main-container">
+    
+    <!-- 1. 左側選單 -->
     <div class="sidebar-list">
         <div class="filter-section">
             <div>
@@ -113,62 +148,34 @@
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, updateDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // ⚠️ 部署時請在此填入 Firebase 設定
-    const fallbackConfig = {
-        // apiKey: "...",
-    };
-    
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'cpl64v-portal';
-
-    if (firebaseConfig.apiKey) {
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        async function initVisitorCount() {
-            try {
-                let user = auth.currentUser;
-                if (!user) {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else { throw new Error("No token"); }
-                    } catch (e) {
-                        await signInAnonymously(auth);
-                    }
-                }
-                
-                const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'site_stats', 'visitors');
-                const isVisited = localStorage.getItem('cpl64v_visited');
-                
-                if (!isVisited) {
-                    try { await updateDoc(statsRef, { count: increment(1) }); } 
-                    catch (e) { await setDoc(statsRef, { count: 1 }, { merge: true }); }
-                    localStorage.setItem('cpl64v_visited', 'true');
-                }
-
-                onSnapshot(statsRef, (doc) => {
-                    if (doc.exists()) document.getElementById('visitorCount').innerText = `${doc.data().count || 0}`;
-                    else document.getElementById('visitorCount').innerText = "0";
-                });
-            } catch (err) {
-                console.error("Visitor error:", err);
-                document.getElementById('visitorCount').innerText = "Off";
-            }
-        }
-        initVisitorCount();
-    } else {
-        document.getElementById('visitorCount').innerText = "-";
+<!-- Simple Script for Visitor Badge (No Firebase) -->
+<script>
+    // 自動產生計數器圖片
+    function initVisitorBadge() {
+        const container = document.getElementById('visitorBadge');
+        container.innerHTML = ''; // Clear loading
+        
+        // 取得當前網址的主機名稱 (例如: cpl64v.vercel.app)
+        // 注意：本地開發 (localhost) 或 預覽網址 也會被計算
+        // 使用 hits.seeyoufarm.com 免費服務
+        const currentUrl = window.location.host || 'local-dev';
+        const targetUrl = `https://${currentUrl}/`;
+        
+        const img = document.createElement('img');
+        img.className = 'visitor-badge';
+        // 使用藍色主題，標題是 "visits"
+        img.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(targetUrl)}&count_bg=%232563EB&title_bg=%231E293B&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false`;
+        img.alt = "Visitor Count";
+        
+        container.appendChild(img);
     }
+    
+    // 初始化計數器
+    initVisitorBadge();
 </script>
 
 <script>
+    // --- i18n ---
     let currentLang = 'zh_TW';
     const translations = {
         en: { select_brand:"1. Select Brand", select_model:"2. Select Model", default_brand:"-- Select Brand --", default_model:"-- Select Model --", available_configs:"AVAILABLE CONFIGS", items_count:"{n} Items", hint_select:"👈 Select Brand & Model", label_source:"📷 Camera Settings (Source)", label_target:"🛠️ CPL64V Product (Target)", loading_text:"Select an image from the list", scanning:"🔍 Verifying images...", no_data:"No Data", valid_configs:"{n} Valid Configs", no_valid_images:"❌ No valid images", default_config:"Default Config", updated:"Updated: ", placeholder_desc:"Hover over the green boxes to see details.", no_desc:"No description available", mapped_to:"Mapped to: " },
@@ -187,6 +194,18 @@
         const ms=document.getElementById('modelSelect');if(ms.options[0].disabled)ms.options[0].text=t('default_model');
         const el=document.querySelector('.list-empty span');if(el&&!ms.value)el.innerText=t('hint_select');
         const ld=document.getElementById('loading');if(ld.classList.contains('active')&&!currentCamera)ld.innerText=t('loading_text');
+        
+        // Dynamic Label Update
+        const lblSource = document.getElementById('lblSource');
+        if (currentCamera) {
+             // Only update if language changed or first load, preserve model info
+             // Actually, simplest is to rebuild string. But we only have camData in loadCamera.
+             // We can store currentCamera (global) and use it.
+             lblSource.innerText = `📷 Source: ${currentCamera.brand} - ${currentCamera.model}`;
+        } else {
+             lblSource.innerText = t('label_source');
+        }
+
         if(displayedParam) updateInfoPanel(displayedParam);
         else if(document.querySelector('.info-placeholder')) document.querySelector('.info-placeholder').innerText=t('placeholder_desc');
     }
@@ -210,7 +229,7 @@
         }catch(e){
             console.warn("Load failed, using mock:",e);
             document.getElementById('demoBadge').style.display='inline-block';
-            fullDB={};
+            fullDB={"demo":{brand:"Basler",model:"acA1920",variant:"Trigger",imageUrl:"https://placehold.co/400x300",targetImageUrl:"",params:[]}};
             buildHierarchy(); populateBrandSelect();
         }
         updateTexts();
@@ -266,7 +285,7 @@
 
     function loadCamera(d){
         currentCamera=d; loading.classList.add('active'); loading.innerText="Loading...";
-        // document.getElementById('lblSource').innerText=`📷 Source: ${d.brand} - ${d.model}`;
+        document.getElementById('lblSource').innerText=`📷 Source: ${d.brand} - ${d.model}`;
         updateInfoPanel(null);
 
         img=new Image(); img.crossOrigin="Anonymous";
@@ -327,13 +346,9 @@
             ctx.lineWidth=h?3:2; ctx.strokeStyle=h?"#00ff00":"rgba(255,255,255,0.5)"; ctx.setLineDash(h?[]:[5,3]);
             ctx.strokeRect(sx,sy,sw,sh);
             if(h){
-                const label = `${p.name} ➤ ${p.cpl_setting || ''}`;
-                ctx.font = "bold 14px Arial"; 
-                const txtW = ctx.measureText(label).width;
-                ctx.fillStyle = "#00ff00";
-                ctx.fillRect(sx, sy - 24, txtW + 10, 24);
-                ctx.fillStyle = "#000";
-                ctx.fillText(label, sx + 5, sy - 7);
+                const l=`${p.name} ➤ ${p.cpl_setting||''}`; ctx.font="bold 14px Arial";
+                const w=ctx.measureText(l).width; ctx.fillStyle="#00ff00"; ctx.fillRect(sx,sy-24,w+10,24);
+                ctx.fillStyle="#000"; ctx.fillText(l,sx+5,sy-7);
             }
         });
     }
