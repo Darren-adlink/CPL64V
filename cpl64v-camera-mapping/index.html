@@ -76,14 +76,14 @@
     <h1>🎯 CPL64V Portal <span id="demoBadge" class="demo-badge">Demo</span></h1>
     <div style="display:flex; align-items:center; gap:15px;">
         
-        <!-- 訪客計數器 (無 Firebase 版本) -->
+        <!-- 訪客計數器 (無 Firebase 版本 - Badge Only) -->
         <div class="visitor-count-container" title="Total Views">
             <span>Views:</span>
             <div id="visitorBadge">Loading...</div>
         </div>
 
         <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:12px; color:#94a3b8;">v8.0 No-Firebase</span>
+            <span style="font-size:12px; color:#94a3b8;">v8.1 Cleaned</span>
             <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
                 <option value="en">English</option>
                 <option value="zh_TW" selected>繁體中文</option>
@@ -198,9 +198,6 @@
         // Dynamic Label Update
         const lblSource = document.getElementById('lblSource');
         if (currentCamera) {
-             // Only update if language changed or first load, preserve model info
-             // Actually, simplest is to rebuild string. But we only have camData in loadCamera.
-             // We can store currentCamera (global) and use it.
              lblSource.innerText = `📷 Source: ${currentCamera.brand} - ${currentCamera.model}`;
         } else {
              lblSource.innerText = t('label_source');
@@ -229,7 +226,7 @@
         }catch(e){
             console.warn("Load failed, using mock:",e);
             document.getElementById('demoBadge').style.display='inline-block';
-            fullDB={"demo":{brand:"Basler",model:"acA1920",variant:"Trigger",imageUrl:"https://placehold.co/400x300",targetImageUrl:"",params:[]}};
+            fullDB={};
             buildHierarchy(); populateBrandSelect();
         }
         updateTexts();
@@ -346,9 +343,13 @@
             ctx.lineWidth=h?3:2; ctx.strokeStyle=h?"#00ff00":"rgba(255,255,255,0.5)"; ctx.setLineDash(h?[]:[5,3]);
             ctx.strokeRect(sx,sy,sw,sh);
             if(h){
-                const l=`${p.name} ➤ ${p.cpl_setting||''}`; ctx.font="bold 14px Arial";
-                const w=ctx.measureText(l).width; ctx.fillStyle="#00ff00"; ctx.fillRect(sx,sy-24,w+10,24);
-                ctx.fillStyle="#000"; ctx.fillText(l,sx+5,sy-7);
+                const label = `${p.name} ➤ ${p.cpl_setting || ''}`;
+                ctx.font = "bold 14px Arial"; 
+                const txtW = ctx.measureText(label).width;
+                ctx.fillStyle = "#00ff00";
+                ctx.fillRect(sx, sy - 24, txtW + 10, 24);
+                ctx.fillStyle = "#000";
+                ctx.fillText(label, sx + 5, sy - 7);
             }
         });
     }
