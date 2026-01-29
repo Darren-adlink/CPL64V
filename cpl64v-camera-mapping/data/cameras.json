@@ -143,5 +143,34 @@
       }
     ],
     "updatedAt": "2026-01-28T03:48:50.772Z"
+  },
+  "i-tek_la-cc-08k05b_tap_Tap-Arrangment": {
+    "brand": "I-Tek",
+    "model": "LA-CC-08K05B",
+    "variant": "tap (Tap-Arrangment)",
+    "key": "i-tek_la-cc-08k05b_tap_Tap-Arrangment",
+    "imageUrl": "https://raw.githubusercontent.com/Darren-adlink/CPL64V/main/cpl64v-camera-mapping/images/I-Tek/LA-CC-08K05B/tap_1769651879676.png",
+    "targetImageUrl": "https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Tap.png",
+    "params": [
+      {
+        "name": "Tap Arrangement",
+        "cam_setting": "Tap Arrangement",
+        "cpl_setting": "Null",
+        "desc": {
+          "en": "CPL64V only supports 1×1, 1×2, 1×4, 1×8, and 1×10 configurations.",
+          "zh_TW": "",
+          "zh_CN": "",
+          "ja": "",
+          "ko": ""
+        },
+        "roi": {
+          "x": 349.5798319327731,
+          "y": 412.2689075630252,
+          "w": 148.23529411764702,
+          "h": 102.18487394957981
+        }
+      }
+    ],
+    "updatedAt": "2026-01-29T01:58:01.634Z"
   }
 }
