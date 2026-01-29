@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>CPL64V Admin Portal</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f1f5f9; --panel: #ffffff; --border: #e2e8f0; --term-bg: #1e1e1e; --term-text: #00ff00; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; }
+        header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 0 20px; height: 60px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        h1 { margin: 0; font-size: 18px; color: #334155; display: flex; align-items: center; gap: 10px; }
+        .mode-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+        .mode-new { background: #dbeafe; color: #1e40af; }
+        .mode-edit { background: #fef3c7; color: #92400e; display: none; }
+        .gh-config { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+        .gh-input { padding: 6px; border: 1px solid var(--border); border-radius: 4px; width: 100px; }
+        .token-input { width: 180px; }
+        .path-input { width: 180px; background-color: #f8fafc; color: #475569; }
+        .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .canvas-area { flex: 1; background: #334155; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; border-right: 1px solid #1e293b; }
+        .target-area { flex: 1; background: #0f172a; position: relative; overflow: hidden; display: none; justify-content: center; align-items: center; flex-direction: column; border-right: 1px solid #1e293b; cursor: grab; }
+        .target-area:active { cursor: grabbing; }
+        canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); border-radius: 4px; }
+        .area-label { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.6); color: #94a3b8; padding: 2px 8px; font-size: 11px; border-radius: 4px; pointer-events: none; }
+        .sidebar { width: 450px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .overlay-msg { position: absolute; color: white; pointer-events: none; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; }
+        .panel-section { padding: 20px; border-bottom: 1px solid var(--border); }
+        .section-title { font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; color: #475569; }
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; font-size: 13px; color: #64748b; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
+        .row-inputs { display: flex; gap: 10px; align-items: center; }
+        .row-inputs .form-control { flex: 1; }
+        .arrow-separator { color: #94a3b8; font-weight: bold; }
+        .file-upload { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; color: #64748b; cursor: pointer; transition: 0.2s; }
+        .file-upload:hover { border-color: var(--primary); background: #eff6ff; }
+        .roi-list { flex: 1; overflow-y: auto; padding: 10px; min-height: 100px; }
+        .roi-item { background: #f8fafc; border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; position: relative; }
+        .roi-item.active { border-color: var(--primary); background: #eff6ff; }
+        .roi-item:hover .delete-btn { opacity: 1; }
+        .delete-btn { position: absolute; top: 5px; right: 5px; background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; opacity: 0; }
+        .lang-tabs { display: flex; gap: 4px; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .lang-tab { padding: 4px 8px; font-size: 11px; cursor: pointer; border: 1px solid transparent; border-radius: 4px; color: #64748b; }
+        .lang-tab:hover { background: #f1f5f9; }
+        .lang-tab.active { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; font-weight: bold; }
+        .desc-textarea { display: none; }
+        .desc-textarea.active { display: block; }
+        .auto-trans-btn { font-size: 11px; padding: 2px 6px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; float: right; }
+        .auto-trans-btn:hover { background: #7c3aed; }
+        .db-table-container { max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .db-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .db-table th { position: sticky; top: 0; background: #f1f5f9; text-align: left; padding: 8px; color: #475569; font-size: 11px; font-weight: 600; border-bottom: 1px solid #e2e8f0; z-index: 5; }
+        .db-table td { border-bottom: 1px solid #f1f5f9; padding: 6px 8px; vertical-align: middle; color: #334155; }
+        .db-table tr:hover { background: #f8fafc; cursor: pointer; }
+        .db-row.active { background: #eff6ff; }
+        .db-row.invalid { background: #fee2e2; opacity: 0.7; }
+        .variant-cell { display: flex; align-items: center; gap: 8px; }
+        .variant-name { font-weight: bold; color: #2563eb; font-size: 11px; }
+        .db-thumb { width: 24px; height: 24px; object-fit: cover; border-radius: 3px; background: #cbd5e1; border: 1px solid #e2e8f0; opacity: 0.8; }
+        .db-del-btn { color: #ef4444; cursor: pointer; font-weight: bold; padding: 4px; border-radius: 4px; }
+        .db-del-btn:hover { background: #fee2e2; }
+        .btn { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 5px; font-size: 13px; }
+        .btn:hover { background: #1d4ed8; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .btn-dark { background: #334155; }
+        .btn-dark:hover { background: #1e293b; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #b91c1c; }
+        .mode-switch { position: absolute; top: 20px; left: 20px; background: white; padding: 5px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 5px; }
+        .mode-btn { padding: 8px 12px; border: none; background: none; border-radius: 6px; cursor: pointer; }
+        .mode-btn.active { background: var(--primary); color: white; }
+        .terminal-panel { background-color: var(--term-bg); color: var(--term-text); font-family: 'Consolas', 'Monaco', monospace; padding: 15px; height: 180px; overflow-y: auto; border-top: 4px solid #333; display: none; flex-shrink: 0; font-size: 13px; line-height: 1.5; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); }
+        .term-line { margin: 2px 0; word-wrap: break-word; }
+        .term-time { color: #888; margin-right: 10px; }
+        .term-cmd { color: #facc15; }
+        .term-success { color: #4ade80; }
+        .term-error { color: #ef4444; }
+        .term-toggle-btn { background: #334155; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <h1>📷 CPL64V Admin</h1>
+        <span id="badgeNew" class="mode-badge mode-new">NEW MODE</span>
+        <span id="badgeEdit" class="mode-badge mode-edit">EDIT MODE</span>
+    </div>
+    <div class="gh-config">
+        <input type="password" id="ghToken" class="gh-input token-input" placeholder="GitHub Token" onchange="window.saveConfig()">
+        <input type="text" id="ghOwner" class="gh-input" placeholder="User" value="Darren-adlink" onchange="window.saveConfig()">
+        <input type="text" id="ghRepo" class="gh-input" placeholder="Repo" value="CPL64V" onchange="window.saveConfig()">
+        <input type="text" id="ghPath" class="gh-input path-input" placeholder="Folder Name" value="cpl64v-camera-mapping" title="存放資料的資料夾名稱" onchange="window.saveConfig()">
+        <button class="term-toggle-btn" onclick="window.toggleTerminal()">💻 終端機</button>
+    </div>
+</header>
+
+<div class="workspace">
+    <div class="canvas-area" id="canvasContainer" onwheel="window.handleZoom(event)" onmousedown="window.handleMouseDown(event)" oncontextmenu="return false;">
+        <div class="area-label" id="lblSource">📷 相機截圖 (Source)</div>
+        <div class="mode-switch">
+            <button class="mode-btn" id="btnModeDraw" onclick="window.setMode('draw')">✏️ 畫框 (Draw)</button>
+            <button class="mode-btn active" id="btnModePan" onclick="window.setMode('pan')">✋ 移動 (Pan)</button>
+        </div>
+        <div class="overlay-msg" id="overlayMsg">請將圖片拖曳至此處，或從右側列表選擇載入</div>
+        <canvas id="editorCanvas"></canvas>
+    </div>
+
+    <div class="target-area" id="targetPreviewPanel" onwheel="window.handleTargetZoom(event)">
+        <div class="area-label">🛠️ CPL64V 參數圖 (Target)</div>
+        <canvas id="targetCanvas"></canvas>
+    </div>
+
+    <div class="sidebar">
+        <!-- 1. Info -->
+        <div class="panel-section">
+            <div class="section-title">
+                1. 相機資訊 (Camera Info)
+                <button id="btnCancelEdit" class="btn btn-warning" style="width:auto; padding:2px 8px; font-size:12px; display:none;" onclick="window.resetToNewMode()">取消編輯</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">品牌 (Brand)</label>
+                <input type="text" id="brandKey" class="form-control" placeholder="e.g. Basler..." list="commonBrands" oninput="window.updateSourceLabel()">
+                <datalist id="commonBrands">
+                    <option value="AlliedVision"></option><option value="Basler"></option><option value="Baumer"></option><option value="Chromasens"></option><option value="Cognex"></option>
+                    <option value="Daheng">(大恆)</option><option value="Dalsa">Teledyne DALSA</option><option value="Flir"></option><option value="Hikrobot">海康機器人</option><option value="IDS"></option>
+                    <option value="I-Tek"></option><option value="iRayple">(華睿)</option><option value="JAI"></option><option value="Lucid"></option><option value="MatrixVision"></option>
+                    <option value="Photonfocus"></option><option value="Sentech">Omron </option><option value="Sony"></option><option value="Teli">Toshiba </option><option value="TIS"></option><option value="Vieworks"></option>
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label class="form-label">型號 (Model)</label>
+                <input type="text" id="modelKey" class="form-control" placeholder="e.g. Racer" oninput="window.updateSourceLabel()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">CPL64V 參數圖 (Page Variant)</label>
+                <select id="cplImageSelect" class="form-control" onchange="window.handleTargetImageChange()">
+                    <option value="" disabled selected>請選擇對應的參數畫面 (識別ID)...</option>
+                </select>
+                <input type="text" id="targetImgUrl" class="form-control" readonly style="margin-top:5px; font-size:11px; color:#64748b; background-color:#e2e8f0; display:none;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">自訂後綴 (Optional Suffix)</label>
+                <input type="text" id="variantSuffix" class="form-control" placeholder="e.g. 2, Advanced..." oninput="window.updateSourceLabel()">
+                <div style="font-size:10px; color:#94a3b8; margin-top:2px;">用於區分同一類型的不同截圖 (例: Tap_2)</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">上傳新截圖 (Source Image)</label>
+                <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="window.handleFileSelect(event)">
+                <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                    <span id="uploadText">點擊選擇檔案 (或拖曳)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Editor -->
+        <div class="panel-section" id="paramEditor" style="display:none; background:#fffbeb;">
+            <span class="section-title" style="color:#b45309">2. 編輯選中參數 (Edit ROI)</span>
+            <div class="form-group">
+                <label class="form-label">參數名稱 (Parameter Name)</label>
+                <input type="text" id="pName" class="form-control" placeholder="e.g. Trigger Mode" oninput="window.updateCurrentParam()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">參數對應 (Mapping)</label>
+                <div class="row-inputs">
+                    <input type="text" id="pCamValue" class="form-control" placeholder="相機 (e.g. On)" oninput="window.updateCurrentParam()">
+                    <span class="arrow-separator">→</span>
+                    <input type="text" id="pCplValue" class="form-control" placeholder="CPL (e.g. External)" oninput="window.updateCurrentParam()">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">
+                    說明 (Description)
+                    <button class="auto-trans-btn" onclick="window.autoTranslateDesc()">一鍵翻譯 (Demo)</button>
+                </label>
+                <div class="lang-tabs">
+                    <div class="lang-tab active" onclick="window.switchDescTab('en')" id="tab_en">EN</div>
+                    <div class="lang-tab" onclick="window.switchDescTab('zh_TW')" id="tab_zh_TW">繁體</div>
+                    <div class="lang-tab" onclick="window.switchDescTab('zh_CN')" id="tab_zh_CN">簡體</div>
+                    <div class="lang-tab" onclick="window.switchDescTab('ja')" id="tab_ja">日文</div>
+                    <div class="lang-tab" onclick="window.switchDescTab('ko')" id="tab_ko">韓文</div>
+                </div>
+                <textarea id="pDesc_en" class="form-control desc-textarea active" rows="3" placeholder="English Description..." oninput="window.updateCurrentParam()"></textarea>
+                <textarea id="pDesc_zh_TW" class="form-control desc-textarea" rows="3" placeholder="繁體中文說明..." oninput="window.updateCurrentParam()"></textarea>
+                <textarea id="pDesc_zh_CN" class="form-control desc-textarea" rows="3" placeholder="简体中文说明..." oninput="window.updateCurrentParam()"></textarea>
+                <textarea id="pDesc_ja" class="form-control desc-textarea" rows="3" placeholder="日本語の説明..." oninput="window.updateCurrentParam()"></textarea>
+                <textarea id="pDesc_ko" class="form-control desc-textarea" rows="3" placeholder="한국어 설명..." oninput="window.updateCurrentParam()"></textarea>
+            </div>
+        </div>
+
+        <div class="roi-list" id="roiList"></div>
+
+        <!-- 3. DB List -->
+        <div class="panel-section">
+            <div class="section-title">
+                3. 現有資料庫
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-warning" onclick="window.cleanInvalidData()" style="width:auto; padding:2px 8px; font-size:11px;" title="清理無效圖片">🧹 清理</button>
+                    <span class="action-icon" onclick="window.fetchExistingBrands()" title="重新讀取">↻</span>
+                </div>
+            </div>
+            <div id="brandListStatus" style="font-size:12px; color:#64748b; margin-bottom:5px;">狀態: 準備就緒</div>
+            <div class="db-table-container">
+                <table class="db-table">
+                    <thead><tr><th style="width:25%">Brand</th><th style="width:30%">Model</th><th style="width:30%">Variant</th><th style="width:15%">Del</th></tr></thead>
+                    <tbody id="dbTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. Upload -->
+        <div class="panel-section">
+            <button class="btn btn-success" id="btnUpload" onclick="window.uploadToGitHub()" disabled>☁️ Save & Update</button>
+            <button class="btn btn-dark" onclick="window.showUploadCommandPreview()">>_ 顯示上傳指令</button>
+        </div>
+    </div>
+</div>
+
+<div class="terminal-panel" id="terminalPanel">
+    <div class="term-line"><span class="term-time">[System]</span>Welcome to CPL64V Admin Terminal v6.0 (Full Config Restored)</div>
+</div>
+
+<script>
+    // --- Config & State ---
+    const GITHUB_USER = 'Darren-adlink';
+    const GITHUB_REPO = 'CPL64V';
+    const DATA_PATH = 'cpl64v-camera-mapping/data/cameras.json'; 
+    const DB_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${DATA_PATH}`;
+    const GLOBAL_AUTHOR_NAME = "Darren-adlink";
+    const GLOBAL_AUTHOR_EMAIL = "darren.hung@adlinktech.com";
+
+    // --- FULL FAE CONFIG (Restored) ---
+    const FAE_CONFIG = {
+        camera_params: {
+            standard_order: ['pixelformat', 'pixelsize', 'sensorwidth', 'sensorheight', 'tap'],
+            signal_order: ['fval_enable', 'fval_polarity', 'lval_enable', 'lval_polarity', 'dval_enable', 'dval_polarity'],
+            pixelformat: { label_key: 'param_label_pixelformat', value: 'RGB / Mono', title_key: 'param_title_pixelformat', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Format.png' },
+            pixelsize: { label_key: 'param_label_pixelsize', value: '8 / 10 / 12', title_key: 'param_title_pixelsize', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-PixelSzie.png' },
+            sensorwidth: { label_key: 'param_label_sensorwidth', value: '2448 px', title_key: 'param_title_sensorwidth', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-SensorWidth.png' },
+            sensorheight: { label_key: 'param_label_sensorheight', value: '2048 px', title_key: 'param_title_sensorheight', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-SensorHeight.png' },
+            tap: { label_key: 'param_label_tap', value: '1 / 2 / 4 / 8 / 10', title_key: 'param_title_tap', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat-Tap.png' },
+            scanmode: { label_key: 'param_label_scanmode', type: 'selector', title_key: 'param_title_scanmode', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraMode.png', options: [{label:'Area', value:'Area'}, {label:'Line', value:'Line'}], defaultValue: 'Area' },
+            fval_enable: { label_key: 'param_label_fval_enable', type: 'signal', title_key: 'param_title_fval_enable', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_FVALEnable.png' },
+            fval_polarity: { label_key: 'param_label_fval_polarity', type: 'signal', title_key: 'param_title_fval_polarity', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_FVALPolarity.png' },
+            lval_enable: { label_key: 'param_label_lval_enable', type: 'signal', title_key: 'param_title_lval_enable', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_LVALEnable.png' },
+            lval_polarity: { label_key: 'param_label_lval_polarity', type: 'signal', title_key: 'param_title_lval_polarity', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_LVALPolarity.png' },
+            dval_enable: { label_key: 'param_label_dval_enable', type: 'signal', title_key: 'param_title_dval_enable', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_DVALEnable.png' },
+            dval_polarity: { label_key: 'param_label_dval_polarity', type: 'signal', title_key: 'param_title_dval_polarity', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-ImageFormat_DVALPolarity.png' }
+        },
+        trigger_params: {
+            trigger_mode: { label_key: 'param_label_trigger_mode', type: 'selector', title_key: 'param_title_trigger_mode', options: [{label: 'Trigger', value: 'trigger'}, {label: 'Manual', value: 'manual'}], defaultValue: 'trigger', githubUrl_CC1: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1OutputMode.png', githubUrl_CC2: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC2OutputMode.png' },
+            cc1_high_pulse: { port: 'CC1', type: 'signal_def', value: '4', title_key: 'param_title_cc1_high_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1HighPusleWidth.png' },
+            cc1_low_pulse: { port: 'CC1', type: 'signal_def', value: '2', title_key: 'param_title_cc1_low_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1LowPusleWidth.png' },
+            cc1_inverted: { label_key: 'param_label_inverted', port: 'CC1', type: 'signal_def', value: 'Inactive', title_key: 'param_title_cc1_inverted', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC1Inverted.png' },
+            cc2_high_pulse: { port: 'CC2', type: 'signal_def', value: '0', title_key: 'param_title_cc2_high_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC2HighPusleWidth.png' },
+            cc2_low_pulse: { port: 'CC2', type: 'signal_def', value: '0', title_key: 'param_title_cc2_low_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC2LowPusleWidth.png' },
+            cc2_inverted: { label_key: 'param_label_inverted', port: 'CC2', type: 'signal_def', value: 'Inactive', title_key: 'param_title_cc2_inverted', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-CameraControl_CC2Inverted.png' },
+            cc1_source: { label_key: 'param_label_trigger_source', port: 'CC1', type: 'source', title_key: 'param_title_cc1_source', options: ['Disable', 'DI0', 'DI1', 'DI2', 'DI3', 'EncoderComparer', 'MultiCardSync', 'SoftwareTrigger'], defaultValue: 'DI0', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutputTrigSrc-CC1.png' },
+            cc1_delay_mode: { label_key: 'param_label_delay_trigger', port: 'CC1', type: 'delay_mode', title_key: 'param_title_cc1_delay_mode', options: ['Time', 'Pulse'], defaultValue: 'Time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-Port0CC1DelayMode.png' },
+            cc1_delay_count: { label_key: 'param_label_delay_unit', port: 'CC1', type: 'delay_count', title_key: 'param_title_cc1_delay_count', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-Port0CC1DelayCount.png' },
+            cc2_source: { label_key: 'param_label_trigger_source', port: 'CC2', type: 'source', title_key: 'param_title_cc2_source', options: ['Disable', 'DI0', 'DI1', 'DI2', 'DI3', 'EncoderComparer', 'MultiCardSync', 'SoftwareTrigger'], defaultValue: 'DI0', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutputTrigSrc-CC2.png' },
+            cc2_delay_mode: { label_key: 'param_label_delay_trigger', port: 'CC2', type: 'delay_mode', title_key: 'param_title_cc2_delay_mode', options: ['Time', 'Pulse'], defaultValue: 'Time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-Port0CC1DelayMode.png' },
+            cc2_delay_count: { label_key: 'param_label_delay_unit', port: 'CC2', type: 'delay_count', title_key: 'param_title_cc2_delay_count', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-Port0CC1DelayCount.png' }
+        },
+        io_params: {
+            encoder_mode: { label_key: 'param_label_encoder_mode', type: 'selector', title_key: 'param_title_encoder_mode', options: [{label: 'OUT/DIR', value: 'out_dir'}, {label: 'CW/CCW', value: 'cw_ccw'}, {label: 'AB X1', value: 'ab_x1'}, {label: 'AB X2', value: 'ab_x2'}, {label: 'AB X4', value: 'ab_x4'}], defaultValue: 'ab_x4', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-EncoderInput-Mode.png' },
+            encoder_polarity: { label_key: 'param_label_encoder_polarity', type: 'selector', title_key: 'param_title_encoder_polarity', options: [{label: '上緣觸發', value: 'rising'}, {label: '下緣觸發', value: 'falling'}], defaultValue: 'rising', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerInput-AB.png' },
+            sensor_settings: {
+                debounce_time: { label_key: 'param_label_debounce_time', value: '1000', title_key: 'param_title_debounce_time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerInput-DebounceTime.png' },
+                do_polarity: { label_key: 'param_label_do_polarity', type: 'selector', title_key: 'param_title_do_polarity', options: [{label: '上緣觸發', value: 'rising'}, {label: '下緣觸發', value: 'falling'}], defaultValue: 'rising', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerInput-DI0.png' }
+            },
+            digital_output_settings: {
+                do_output_src: { label_key: 'param_label_do_output_src', type: 'source', title_key: 'param_title_do_output_src', options: ['Disable', 'DI0', 'DI1', 'DI2', 'DI3', 'EncoderComparer', 'MultiCardSync', 'SoftwareTrigger'], defaultValue: 'DI0', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutPutTrigSrc_DO0.png' },
+                do_trigger_mode: { label_key: 'param_label_do_trigger_mode', type: 'selector', title_key: 'param_title_do_trigger_mode', options: [{label: 'Trigger', value: 'trigger'}, {label: 'Manual', value: 'manual'}], defaultValue: 'trigger', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutpu-OutPutMode.png' },
+                do_high_pulse: { value: '1000', title_key: 'param_title_do_high_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutpu-HighPulseWidth.png' },
+                do_low_pulse: { value: '1000', title_key: 'param_title_do_low_pulse', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutpu-LowPulseWidth.png' },
+                do_inverted: { label_key: 'param_label_inverted', value: 'Inactive', title_key: 'param_title_do_inverted', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerOutpu-InvertePolarity.png' },
+                do_delay_mode: { label_key: 'param_label_do_delay_mode', type: 'selector', title_key: 'param_title_do_delay_mode', options: ['Time', 'Pulse'], defaultValue: 'Time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-DODelayMode.png' },
+                do_delay_count: { label_key: 'param_label_do_delay_count', units: { Time: '0 us', Pulse: '0 pulse' }, title_key: 'param_title_do_delay_count', defaultValue: 'Time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-TriggerDelay-DODelayCount.png' },
+                retrigger_enable: { label_key: 'param_label_retrigger_enable', type: 'selector', title_key: 'param_title_retrigger_enable', options: [{label: 'Enable', value: 'enable'}, {label: 'Disable', value: 'disable'}], defaultValue: 'disable', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-Retrigger.png' },
+                retrigger_mode: { label_key: 'param_label_retrigger_mode', type: 'selector', title_key: 'param_title_retrigger_mode', options: [{label: 'by Time', value: 'time'}, {label: 'by Encoder', value: 'encoder'}], defaultValue: 'time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-Retrigger.png' },
+                trigger_nums: { label_key: 'param_label_trigger_nums', value: '1', title_key: 'param_title_trigger_nums', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-Retrigger.png' },
+                retrigger_interval: { label_key: 'param_label_retrigger_interval', units: { time: '1000 us', encoder: '1000 pulse' }, title_key: 'param_title_retrigger_interval', defaultValue: 'time', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-Retrigger.png' }
+            }
+        },
+        multicard_params: {
+            multicard_mode: { label_key: 'multicard_mode', type: 'selector', title_key: 'param_title_multicard_mode', options: [{label: 'Master', value: 'master'}, {label: 'Slave', value: 'slave'}], defaultValue: 'master', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-MultiCardSync.png' },
+            master_trigger_source: { label_key: 'multicard_master_mode_label', type: 'source', title_key: 'param_title_multicard_trig_src', options: ['Disable', 'DI0', 'DI1', 'DI2', 'DI3', 'EncoderComparer', 'SoftwareTrigger'], defaultValue: 'Disable', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-MultiCardTriggerSrc.png' },
+            slave_trigger_source: { label_key: 'multicard_slave_mode_label', type: 'source', title_key: 'param_title_multicard_trig_src', options: ['MultiCardSync'], defaultValue: 'MultiCardSync', githubUrl: 'https://cdn.jsdelivr.net/gh/Darren-adlink/Test-uploadIMG@main/CamCreator-MultiCardTriggerSrc.png' }
+        }
+    };
+
+    const canvas = document.getElementById('editorCanvas'), ctx = canvas.getContext('2d');
+    const targetCanvas = document.getElementById('targetCanvas'), targetCtx = targetCanvas.getContext('2d');
+    const termPanel = document.getElementById('terminalPanel');
+    const canvasContainer = document.getElementById('canvasContainer');
+
+    let img = null, scale = 1, offsetX = 0, offsetY = 0, isDragging = false, startX, startY;
+    let targetImg = null, targetScale = 1, targetOffsetX = 0, targetOffsetY = 0, isDraggingTarget = false, targetStartX, targetStartY;
+    let mode = 'pan', isRightClickDragging = false, params = [], selectedIndex = -1, currentFile = null;
+    let isEditMode = false, existingData = null, existingSha = null, currentEditKey = null, isRemoteImage = false, currentVariant = null;
+    let ghConfig = { token: '', owner: '', repo: '', path: '' };
+    let currentDescLang = 'en';
+
+    // --- GLOBAL FUNCTIONS ---
+
+    window.toggleTerminal = function() { const p = document.getElementById('terminalPanel'); p.style.display = p.style.display==='none'?'block':'none'; };
+    
+    window.logToTerm = function(m, type='normal') {
+        const d = document.createElement('div'); d.className='term-line'; 
+        if(type==='error') d.className+=' term-error';
+        if(type==='success') d.className+=' term-success';
+        if(type==='info') d.className+=' term-cmd';
+        const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+        d.innerHTML = `<span class="term-time">[${time}]</span> ${m}`;
+        document.getElementById('terminalPanel').appendChild(d);
+        document.getElementById('terminalPanel').scrollTop = document.getElementById('terminalPanel').scrollHeight;
+    };
+
+    window.saveConfig = function() {
+        ghConfig.token = document.getElementById('ghToken').value.trim();
+        ghConfig.owner = document.getElementById('ghOwner').value.trim();
+        ghConfig.repo = document.getElementById('ghRepo').value.trim();
+        ghConfig.path = document.getElementById('ghPath').value.trim();
+        localStorage.setItem('cpl_admin_token', ghConfig.token);
+        localStorage.setItem('cpl_admin_owner', ghConfig.owner);
+        localStorage.setItem('cpl_admin_repo', ghConfig.repo);
+        localStorage.setItem('cpl_admin_path', ghConfig.path);
+        window.logToTerm("Config saved.", 'success');
+    };
+
+    window.initCplImageDropdown = function() {
+        const select = document.getElementById('cplImageSelect');
+        const items = [];
+        const extract = (obj) => {
+            for (const key in obj) {
+                const val = obj[key];
+                if (typeof val === 'object' && val !== null) {
+                    if(Array.isArray(val)) continue;
+                    
+                    // Case 1: Standard
+                    if (val.githubUrl) items.push({ key: key, name: val.label_key || key, url: val.githubUrl });
+                    
+                    // Case 2: Variants
+                    Object.keys(val).forEach(k => {
+                        if (k.startsWith('githubUrl_')) {
+                            const suffix = k.replace('githubUrl_', '');
+                            const baseName = val.label_key || key;
+                            items.push({ key: `${key}_${suffix}`, name: `${baseName} [${suffix}]`, url: val[k] });
+                        }
+                    });
+
+                    extract(val);
+                }
+            }
+        };
+        extract(FAE_CONFIG);
+        items.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.key; opt.dataset.url = item.url; opt.text = item.name;
+            select.appendChild(opt);
+        });
+    };
+
+    window.handleTargetImageChange = function() {
+        const select = document.getElementById('cplImageSelect');
+        const url = select.options[select.selectedIndex].dataset.url;
+        currentVariant = select.value;
+        window.updateTargetPreview(url);
+    };
+
+    window.updateTargetPreview = function(url) {
+        if (!url) return;
+        document.getElementById('targetPreviewPanel').style.display = 'flex';
+        document.getElementById('targetImgUrl').value = url;
+        targetImg = new Image(); targetImg.crossOrigin = "Anonymous";
+        targetImg.onload = () => {
+            targetCanvas.width = document.getElementById('targetPreviewPanel').clientWidth;
+            targetCanvas.height = document.getElementById('targetPreviewPanel').clientHeight;
+            targetScale = Math.min((targetCanvas.width-40)/targetImg.width, (targetCanvas.height-40)/targetImg.height);
+            targetOffsetX = (targetCanvas.width - targetImg.width * targetScale) / 2;
+            targetOffsetY = (targetCanvas.height - targetImg.height * targetScale) / 2;
+            window.drawTarget();
+        };
+        targetImg.src = url;
+    };
+
+    window.drawTarget = function() {
+        if (!targetImg || !targetImg.complete) return;
+        targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+        targetCtx.drawImage(targetImg, targetOffsetX, targetOffsetY, targetImg.width * targetScale, targetImg.height * targetScale);
+    };
+
+    window.updateSourceLabel = function() {
+        const brand = document.getElementById('brandKey').value || '相機';
+        const model = document.getElementById('modelKey').value || '截圖';
+        const suffix = document.getElementById('variantSuffix').value.trim();
+        const suffixText = suffix ? ` (${suffix})` : '';
+        document.getElementById('lblSource').innerText = `📷 ${brand} - ${model}${suffixText}`;
+    };
+
+    window.handleFileSelect = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            window.resetToNewMode();
+            window.logToTerm("New image selected.", 'success');
+            currentFile = file; isRemoteImage = false;
+            document.getElementById('uploadText').innerText = file.name;
+            document.getElementById('btnUpload').innerText = '☁️ Save & Upload to GitHub';
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img = new Image();
+                img.onload = () => {
+                    scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height);
+                    offsetX = (canvas.width - img.width * scale) / 2;
+                    offsetY = (canvas.height - img.height * scale) / 2;
+                    document.getElementById('overlayMsg').style.display = 'none';
+                    document.getElementById('btnUpload').disabled = false;
+                    window.draw();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        event.target.value = '';
+    };
+
+    window.resetToNewMode = function() {
+        isEditMode = false; currentEditKey = null; isRemoteImage = false; currentFile = null; img = null; params = []; selectedIndex = -1;
+        document.getElementById('fileInput').value = '';
+        document.getElementById('uploadText').innerText = '點擊選擇檔案 (或拖曳)';
+        document.getElementById('btnCancelEdit').style.display = 'none';
+        document.getElementById('badgeEdit').style.display = 'none';
+        document.getElementById('badgeNew').style.display = 'inline-block';
+        document.getElementById('btnUpload').disabled = true;
+        document.getElementById('btnUpload').innerText = '☁️ Save & Upload to GitHub';
+        document.getElementById('targetPreviewPanel').style.display = 'none';
+        document.getElementById('cplImageSelect').value = "";
+        document.getElementById('variantSuffix').value = ""; 
+        currentVariant = null;
+        window.setMode('pan'); window.draw(); window.updateEditorUI(); window.renderRoiList();
+        document.getElementById('overlayMsg').style.display = 'block';
+        window.updateSourceLabel();
+    };
+
+    window.draw = function() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if(!img) return;
+        ctx.drawImage(img, offsetX, offsetY, img.width*scale, img.height*scale);
+        params.forEach((p,i) => {
+            const sx = p.roi.x*scale+offsetX, sy = p.roi.y*scale+offsetY, sw = p.roi.w*scale, sh = p.roi.h*scale;
+            ctx.strokeStyle = i===selectedIndex ? '#00ff00' : 'rgba(255,255,0,0.7)';
+            ctx.lineWidth = 2; ctx.strokeRect(sx,sy,sw,sh);
+            if(i===selectedIndex) { ctx.fillStyle='rgba(0,255,0,0.2)'; ctx.fillRect(sx,sy,sw,sh); }
+        });
+    };
+
+    window.setMode = function(m) {
+        mode = m;
+        document.getElementById('btnModeDraw').className = mode === 'draw' ? 'mode-btn active' : 'mode-btn';
+        document.getElementById('btnModePan').className = mode === 'pan' ? 'mode-btn active' : 'mode-btn';
+        canvasContainer.style.cursor = mode === 'draw' ? 'default' : 'grab';
+    };
+
+    window.handleZoom = function(e) {
+        e.preventDefault(); if(!img) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const imgX = (mx - offsetX) / scale, imgY = (my - offsetY) / scale;
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        scale *= delta;
+        offsetX = mx - imgX * scale; offsetY = my - imgY * scale;
+        window.draw();
+    };
+
+    window.handleTargetZoom = function(e) {
+        e.preventDefault(); if(!targetImg) return;
+        const rect = targetCanvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const imgX = (mx - targetOffsetX) / targetScale, imgY = (my - targetOffsetY) / targetScale;
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        targetScale *= delta;
+        targetOffsetX = mx - imgX * targetScale; targetOffsetY = my - imgY * targetScale;
+        window.drawTarget();
+    };
+
+    window.handleMouseDown = function(e) {
+        if (!img) return;
+        if (e.button === 2 || (mode === 'pan' && e.button === 0)) {
+            isDragging = true; isRightClickDragging = (e.button === 2);
+            startX = e.clientX; startY = e.clientY;
+            canvasContainer.style.cursor = 'grab';
+            return;
+        }
+        if (mode === 'draw' && e.button === 0) {
+            isDragging = true; startX = e.clientX; startY = e.offsetY;
+            const imgX = (e.offsetX - offsetX) / scale;
+            const imgY = (e.offsetY - offsetY) / scale;
+            const clicked = params.findIndex(p => imgX >= p.roi.x && imgX <= p.roi.x+p.roi.w && imgY >= p.roi.y && imgY <= p.roi.y+p.roi.h);
+            if (clicked !== -1) { window.selectParam(clicked); isDragging = false; }
+            else {
+                selectedIndex = -1; window.updateEditorUI();
+                params.push({ name: "New Param", cam_setting: "", cpl_setting: "", desc: "", roi: { x: imgX, y: imgY, w: 0, h: 0 } });
+                selectedIndex = params.length - 1;
+            }
+        }
+    };
+
+    window.selectParam = function(index) {
+        selectedIndex = index; window.updateEditorUI(); window.renderRoiList();
+        if(index !== -1 && img) {
+            const p = params[index];
+            if(p.roi.w > 0) {
+                const cx = p.roi.x + p.roi.w/2, cy = p.roi.y + p.roi.h/2;
+                scale = Math.min(Math.max(200/Math.min(p.roi.w, p.roi.h), 0.1), 5.0);
+                offsetX = (canvas.width/2) - (cx*scale); offsetY = (canvas.height/2) - (cy*scale);
+            }
+        }
+        window.draw();
+    };
+
+    window.updateEditorUI = function() {
+        const editor = document.getElementById('paramEditor');
+        if (selectedIndex === -1) { editor.style.display = 'none'; return; }
+        const p = params[selectedIndex];
+        editor.style.display = 'block';
+        document.getElementById('pName').value = p.name;
+        document.getElementById('pCamValue').value = p.cam_setting || '';
+        document.getElementById('pCplValue').value = p.cpl_setting || '';
+        
+        const descData = (typeof p.desc === 'object' && p.desc !== null) ? p.desc : { en: p.desc || '' };
+        const fallbackEn = descData.en || '';
+        document.getElementById('pDesc_en').value = fallbackEn;
+        document.getElementById('pDesc_zh_TW').value = descData.zh_TW || fallbackEn;
+        document.getElementById('pDesc_zh_CN').value = descData.zh_CN || fallbackEn;
+        document.getElementById('pDesc_ja').value = descData.ja || fallbackEn;
+        document.getElementById('pDesc_ko').value = descData.ko || fallbackEn;
+        window.switchDescTab('en');
+    };
+
+    window.renderRoiList = function() {
+        const list = document.getElementById('roiList'); list.innerHTML = '';
+        params.forEach((p,i) => {
+            const div = document.createElement('div');
+            div.className = `roi-item ${i===selectedIndex?'active':''}`;
+            div.onclick = () => window.selectParam(i);
+            div.innerHTML = `<div style="font-weight:bold">${p.name}</div><button class="delete-btn" onclick="window.deleteParam(event,${i})">✕</button>`;
+            list.appendChild(div);
+        });
+    };
+
+    window.deleteParam = function(e, i) { e.stopPropagation(); params.splice(i,1); selectedIndex = -1; window.updateEditorUI(); window.renderRoiList(); window.draw(); };
+
+    window.switchDescTab = function(lang) {
+        currentDescLang = lang;
+        document.querySelectorAll('.lang-tab').forEach(t=>t.classList.remove('active'));
+        document.getElementById('tab_'+lang).classList.add('active');
+        document.querySelectorAll('.desc-textarea').forEach(t=>t.classList.remove('active'));
+        document.getElementById('pDesc_'+lang).classList.add('active');
+    };
+
+    window.updateCurrentParam = function() {
+        if(selectedIndex === -1) return;
+        const p = params[selectedIndex];
+        p.name = document.getElementById('pName').value;
+        p.cam_setting = document.getElementById('pCamValue').value;
+        p.cpl_setting = document.getElementById('pCplValue').value;
+        p.desc = {
+            en: document.getElementById('pDesc_en').value,
+            zh_TW: document.getElementById('pDesc_zh_TW').value,
+            zh_CN: document.getElementById('pDesc_zh_CN').value,
+            ja: document.getElementById('pDesc_ja').value,
+            ko: document.getElementById('pDesc_ko').value
+        };
+        window.renderRoiList();
+    };
+
+    window.autoTranslateDesc = function() {
+        const en = document.getElementById('pDesc_en').value;
+        if(!en) return alert('Input EN first');
+        document.getElementById('pDesc_zh_TW').value = `[繁] ${en}`;
+        document.getElementById('pDesc_zh_CN').value = `[简] ${en}`;
+        document.getElementById('pDesc_ja').value = `[JP] ${en}`;
+        document.getElementById('pDesc_ko').value = `[KR] ${en}`;
+        window.updateCurrentParam();
+    };
+
+    window.cleanInvalidData = async function() {
+        if (!existingData) { 
+            window.logToTerm("Data not loaded. Fetching from GitHub first...", 'info');
+            await window.fetchExistingBrands();
+            if(!existingData) return; 
+        }
+        if (!confirm("確定要執行清理嗎？(此動作將忽略快取強制檢查)")) return;
+        if(termPanel.style.display !== 'block') window.toggleTerminal();
+        window.logToTerm("Cleaning...", 'info');
+        
+        const keys = Object.keys(existingData);
+        let deleteCount = 0;
+        let validData = {...existingData}; 
+        
+        const checkImage = (url) => new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        });
+
+        const checks = keys.map(async (key, i) => {
+            if(i%5===0) window.logToTerm(`Checking ${i+1}/${keys.length}...`);
+            if (!(await checkImage(existingData[key].imageUrl))) {
+                delete validData[key]; deleteCount++;
+                window.logToTerm(`Invalid: ${key}`, 'error');
+            }
+        });
+
+        await Promise.all(checks);
+
+        if (deleteCount === 0) { window.logToTerm("Clean.", 'success'); return alert("無需清理"); }
+        
+        try {
+            const dataPath = `${ghConfig.path}/data/cameras.json`;
+            const existing = await window.getFileFromGitHub(dataPath);
+            const jsonContent = btoa(unescape(encodeURIComponent(JSON.stringify(validData, null, 2))));
+            await window.uploadFileToGitHub(dataPath, jsonContent, `Cleaned ${deleteCount} records`, existing.sha);
+            window.logToTerm(`Deleted ${deleteCount} records.`, 'success');
+            window.fetchExistingBrands();
+        } catch(e) { window.logToTerm("Clean failed: "+e.message, 'error'); }
+    };
+
+    window.uploadToGitHub = async function() {
+        if (!ghConfig.token) { alert('Token!'); return; }
+        const brandVal = document.getElementById('brandKey').value.trim();
+        const modelVal = document.getElementById('modelKey').value.trim();
+        const suffixVal = document.getElementById('variantSuffix').value.trim();
+        if (!brandVal || !modelVal || !currentVariant) { alert('Info missing!'); return; }
+        document.getElementById('btnUpload').disabled = true;
+        if(termPanel.style.display !== 'block') window.toggleTerminal();
+        window.logToTerm("Starting Upload...");
+        
+        let uniqueKey = `${brandVal.toLowerCase()}_${modelVal.toLowerCase()}_${currentVariant}`;
+        if (suffixVal) uniqueKey += `_${suffixVal}`;
+        
+        try {
+            let finalImageUrl = "";
+            if (!isRemoteImage && currentFile) {
+                const fileName = `${currentVariant}_${Date.now()}.png`;
+                const imagePath = `${ghConfig.path}/images/${brandVal}/${modelVal}/${fileName}`;
+                window.logToTerm(`Uploading Image: ${imagePath}...`);
+                const base64Img = img.src.split(',')[1]; 
+                await window.uploadFileToGitHub(imagePath, base64Img, `Update ${uniqueKey}`);
+                finalImageUrl = `https://raw.githubusercontent.com/${ghConfig.owner}/${ghConfig.repo}/main/${imagePath}`;
+            } else {
+                finalImageUrl = existingData[currentEditKey] ? existingData[currentEditKey].imageUrl : img.src;
+            }
+
+            let currentData = {};
+            let sha = null;
+            try {
+                const existing = await window.getFileFromGitHub(`${ghConfig.path}/data/cameras.json`);
+                currentData = JSON.parse(decodeURIComponent(escape(atob(existing.content))));
+                sha = existing.sha;
+            } catch(e) {}
+
+            const displayVariant = suffixVal ? `${currentVariant} (${suffixVal})` : currentVariant;
+            currentData[uniqueKey] = {
+                brand: brandVal, model: modelVal, variant: displayVariant, key: uniqueKey,
+                imageUrl: finalImageUrl, targetImageUrl: document.getElementById('targetImgUrl').value,
+                params: params, updatedAt: new Date().toISOString()
+            };
+
+            const jsonStr = JSON.stringify(currentData, null, 2);
+            const jsonContent = btoa(unescape(encodeURIComponent(jsonStr)));
+            await window.uploadFileToGitHub(`${ghConfig.path}/data/cameras.json`, jsonContent, `Update ${uniqueKey}`, sha);
+            
+            window.logToTerm("Success!", 'success');
+            alert('成功！');
+            window.fetchExistingBrands();
+        } catch(e) { window.logToTerm("Error: "+e.message, 'error'); } 
+        finally { document.getElementById('btnUpload').disabled = false; }
+    };
+
+    // --- DELETE RECORD ---
+    window.loadExistingEntry = function(key) {
+        if (!existingData || !existingData[key]) return;
+        const entry = existingData[key];
+        isEditMode = true; currentEditKey = key; isRemoteImage = true; currentFile = null;
+        document.getElementById('brandKey').value = entry.brand || '';
+        document.getElementById('modelKey').value = entry.model || '';
+        window.updateSourceLabel();
+        if(entry.variant) {
+            currentVariant = entry.variant; 
+            document.getElementById('cplImageSelect').value = currentVariant;
+            if(entry.targetImageUrl) window.updateTargetPreview(entry.targetImageUrl);
+        }
+        params = entry.params ? JSON.parse(JSON.stringify(entry.params)) : [];
+        document.getElementById('btnCancelEdit').style.display = 'inline-block';
+        document.getElementById('badgeNew').style.display = 'none';
+        document.getElementById('badgeEdit').style.display = 'inline-block';
+        document.getElementById('btnUpload').innerText = '💾 Update JSON Only'; 
+        document.getElementById('btnUpload').disabled = false;
+        window.setMode('pan');
+        img = new Image(); img.crossOrigin = "Anonymous";
+        img.onload = () => {
+            scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height);
+            offsetX = (canvas.width - img.width * scale) / 2;
+            offsetY = (canvas.height - img.height * scale) / 2;
+            document.getElementById('overlayMsg').style.display = 'none';
+            window.draw(); window.renderRoiList();
+        };
+        img.src = entry.imageUrl;
+    };
+
+    window.deleteRecord = async function(key, rowElement) {
+        if(!confirm(`Delete [${key}]?`)) return;
+        if (!ghConfig.token) return alert('Token!');
+        if(termPanel.style.display !== 'block') window.toggleTerminal();
+        window.logToTerm(`Deleting: ${key}...`, 'info');
+        if (rowElement) { rowElement.style.opacity = '0.5'; rowElement.style.pointerEvents = 'none'; }
+        
+        try {
+            const dataPath = `${ghConfig.path}/data/cameras.json`;
+            const existing = await window.getFileFromGitHub(dataPath);
+            let currentData = JSON.parse(decodeURIComponent(escape(atob(existing.content))));
+            
+            if (currentData[key]) {
+                const entry = currentData[key];
+                if (entry.imageUrl) {
+                     window.logToTerm("Deleting image...", 'normal');
+                     await window.deleteImageFile(entry.imageUrl);
+                }
+                delete currentData[key];
+                const jsonContent = btoa(unescape(encodeURIComponent(JSON.stringify(currentData, null, 2))));
+                await window.uploadFileToGitHub(dataPath, jsonContent, `Delete ${key}`, existing.sha);
+                
+                window.logToTerm(`Deleted.`, 'success');
+                if (rowElement) rowElement.remove();
+                window.fetchExistingBrands(); 
+                if(currentEditKey === key) window.resetToNewMode();
+            }
+        } catch (e) {
+            window.logToTerm(`Failed: ${e.message}`, 'error');
+            alert('Error: ' + e.message);
+            if (rowElement) { rowElement.style.opacity = '1'; rowElement.style.pointerEvents = 'auto'; }
+        }
+    };
+    
+    window.deleteImageFile = async function(imageUrl) {
+        const rawPattern = /^https:\/\/raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/([^\/]+)\/(.+)$/;
+        const match = imageUrl.match(rawPattern);
+        if (!match) return;
+        const owner = match[1], repo = match[2], path = match[4];
+        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        try {
+            const res = await fetch(apiUrl, { headers: { 'Authorization': `token ${ghConfig.token}` } });
+            if (res.status === 404) return;
+            const data = await res.json();
+            await fetch(apiUrl, { method: 'DELETE', headers: { 'Authorization': `token ${ghConfig.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Delete unused`, sha: data.sha }) });
+            window.logToTerm(`Image deleted.`, 'success');
+        } catch (e) { window.logToTerm(`Img Del Error: ${e.message}`, 'error'); }
+    };
+
+    window.getFileFromGitHub = async function(path) {
+        const url = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${path}?t=${new Date().getTime()}`;
+        const res = await fetch(url, { headers: { 'Authorization': `token ${ghConfig.token}` } });
+        if (!res.ok) throw new Error(`Get failed: ${res.status}`);
+        return await res.json();
+    };
+
+    window.uploadFileToGitHub = async function(path, content, message, sha = null) {
+        const url = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${path}`;
+        const body = { message, content, committer: { name: GLOBAL_AUTHOR_NAME, email: GLOBAL_AUTHOR_EMAIL } };
+        if (sha) body.sha = sha;
+        const res = await fetch(url, { method: 'PUT', headers: { 'Authorization': `token ${ghConfig.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error((await res.json()).message);
+        return await res.json();
+    };
+    
+    window.showUploadCommandPreview = () => window.toggleTerminal();
+
+    window.fetchExistingBrands = async function() {
+        if(!ghConfig.token) return;
+        const statusDiv = document.getElementById('brandListStatus'); statusDiv.innerText = "Loading...";
+        try {
+            const file = await window.getFileFromGitHub(`${ghConfig.path}/data/cameras.json`);
+            existingData = JSON.parse(decodeURIComponent(escape(atob(file.content))));
+            const keys = Object.keys(existingData);
+            const tbody = document.getElementById('dbTableBody'); tbody.innerHTML = "";
+            statusDiv.innerText = `Found ${keys.length} items`;
+            keys.forEach(k => {
+                const info = existingData[k];
+                const tr = document.createElement('tr');
+                const imgHtml = `<img src="${info.imageUrl}" class="db-thumb" onerror="this.closest('tr').classList.add('invalid');">`;
+                tr.innerHTML = `<td>${info.brand}</td><td>${info.model}</td><td><div class="variant-cell">${imgHtml}<span class="variant-name">${info.variant||''}</span></div></td><td style="text-align:center;"><span class="db-del-btn" onclick="event.stopPropagation();window.deleteRecord('${k}', this.closest('tr'))">✕</span></td>`;
+                tr.onclick = (e) => { if(!e.target.classList.contains('db-del-btn')) window.loadExistingEntry(k); };
+                tbody.appendChild(tr);
+            });
+        } catch(e) { statusDiv.innerText = "Error"; console.error(e); }
+    };
+
+    // --- Init Function ---
+    function initApp() {
+        window.saveConfig(); 
+        
+        const c = document.getElementById('canvasContainer');
+        canvas.width = c.clientWidth; canvas.height = c.clientHeight;
+        window.initCplImageDropdown();
+        window.setMode('pan');
+        
+        window.addEventListener('resize', () => { if (img) { resizeCanvas(); window.draw(); } });
+        document.body.addEventListener('dragover', e => e.preventDefault());
+        document.body.addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files[0]) window.handleFileSelect({target:{files:e.dataTransfer.files}}); });
+
+        // Event listeners for mouse
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                if (mode === 'pan' || isRightClickDragging) { offsetX += e.clientX - startX; offsetY += e.clientY - startY; startX = e.clientX; startY = e.clientY; window.draw(); }
+                else if (mode === 'draw' && img) {
+                    const current = params[params.length - 1];
+                    if (current) {
+                        const mx = e.clientX - canvas.getBoundingClientRect().left;
+                        const my = e.clientY - canvas.getBoundingClientRect().top;
+                        current.roi.w = (mx - offsetX)/scale - current.roi.x;
+                        current.roi.h = (my - offsetY)/scale - current.roi.y;
+                        window.draw();
+                    }
+                }
+            }
+            if (isDraggingTarget && targetImg) {
+                targetOffsetX += e.clientX - targetStartX; targetOffsetY += e.clientY - targetStartY;
+                targetStartX = e.clientX; targetStartY = e.clientY;
+                window.drawTarget();
+            }
+        });
+        
+        window.addEventListener('mouseup', () => {
+            if (isDragging && mode === 'draw' && img && !isRightClickDragging) {
+                const current = params[params.length - 1];
+                if(current) {
+                    if(current.roi.w < 0) { current.roi.x += current.roi.w; current.roi.w = Math.abs(current.roi.w); }
+                    if(current.roi.h < 0) { current.roi.y += current.roi.h; current.roi.h = Math.abs(current.roi.h); }
+                    if(current.roi.w < 5 || current.roi.h < 5) { params.pop(); selectedIndex = -1; }
+                    else { window.selectParam(params.length - 1); window.setMode('pan'); }
+                    window.draw();
+                }
+            }
+            isDragging = false; isRightClickDragging = false; isDraggingTarget = false;
+            canvasContainer.style.cursor = mode === 'draw' ? 'default' : 'grab';
+        });
+
+        if(ghConfig.token) setTimeout(window.fetchExistingBrands, 1000);
+    }
+    
+    initApp();
+
+</script>
+</body>
+</html>
