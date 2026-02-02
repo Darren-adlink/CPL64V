@@ -35,6 +35,18 @@
             background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
         }
 
+        /* Console Scrollbar */
+        .console-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .console-scroll::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .console-scroll::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 3px;
+        }
+        
         /* Utility for element centering */
         .center-abs {
             position: absolute;
@@ -78,17 +90,31 @@
             // --- 2. State Management ---
             const [mode, setMode] = useState('conveyor'); // Default mode
 
-            // Inputs
-            const [speedValue, setSpeedValue] = useState(3); // Default to 3
-            const [speedUnit, setSpeedUnit] = useState('m_min');
-            const [encoderPPR, setEncoderPPR] = useState(360000);
-            const [divider, setDivider] = useState(30);
-            
-            const [paramPhysical, setParamPhysical] = useState(100); // Roller Dia or Pitch (mm)
-            const [objectLength, setObjectLength] = useState(75); // mm
-            const [frameBufferLines, setFrameBufferLines] = useState(6000); 
+            // -- Mode Specific States (Separated) --
+            const [rollerState, setRollerState] = useState({
+                speed: 1,
+                unit: 'rev_s',
+                diameter: 100, // Roller Diameter
+                length: 150    // Object Length
+            });
 
-            const [resolution, setResolution] = useState(8192);
+            const [conveyorState, setConveyorState] = useState({
+                speed: 3,
+                unit: 'm_min',
+                pitch: 100,    // Travel per Rev
+                length: 75,    // Object Length
+                fov: 200,      // New: FOV Width (mm)
+                manualDivider: 30 // For when Square Pixel is OFF
+            });
+
+            // Toggle for Square Pixel linkage
+            const [isSquarePixel, setIsSquarePixel] = useState(true);
+
+            // Shared Hardware Inputs
+            const [encoderPPR, setEncoderPPR] = useState(360000);
+            const [divider, setDivider] = useState(30); // Manual divider for Roller mode
+            const [frameBufferLines, setFrameBufferLines] = useState(6000); 
+            const [resolution, setResolution] = useState(8192); // Camera Pixels
             const [bitDepth, setBitDepth] = useState(8);
 
             // Simulation State (for React UI updates)
@@ -106,28 +132,36 @@
                 startTime: 0
             });
 
-            // DOM Refs for direct manipulation (High Performance)
+            // DOM Refs
             const beltRef = useRef(null);
             const itemRef = useRef(null);
-            const wheelRef = useRef(null); // Conveyor Encoder Wheel
-            const rollerRef = useRef(null); // Roller Mode Main Wheel
+            const wheelRef = useRef(null); 
+            const rollerRef = useRef(null); 
 
-            // --- 3. Defaults & Reset Logic ---
-            useEffect(() => {
-                if (mode === 'conveyor') {
-                    if (speedUnit === 'rev_s' || speedUnit === 'rpm') setSpeedUnit('m_min');
-                    // Set default speed to 3 for conveyor mode
-                    setSpeedValue(3); 
-                    setParamPhysical(100); // Pitch 100mm
-                    setObjectLength(50);   // Item 50mm
+            // --- 3. Derived Variables based on Mode ---
+            const activeState = mode === 'roller' ? rollerState : conveyorState;
+            
+            const speedValue = activeState.speed;
+            const speedUnit = activeState.unit;
+            const paramPhysical = mode === 'roller' ? activeState.diameter : activeState.pitch;
+            const objectLength = activeState.length;
+            const fovWidth = mode === 'conveyor' ? activeState.fov : 0;
+
+            // Helper to update specific mode state
+            const updateActiveState = (field, value) => {
+                if (mode === 'roller') {
+                    setRollerState(prev => ({ ...prev, [field]: value }));
                 } else {
-                    if (speedUnit === 'm_min' || speedUnit === 'mm_s') setSpeedUnit('rev_s');
-                    if (speedValue === 3) setSpeedValue(1); 
-                    setParamPhysical(100); // Diameter 100mm
-                    setObjectLength(150);  // Item 150mm
+                    let key = field;
+                    if (field === 'diameter') key = 'pitch';
+                    setConveyorState(prev => ({ ...prev, [key]: value }));
                 }
+            };
+
+            // Reset Simulation on critical changes
+            useEffect(() => {
                 resetSimulation();
-            }, [mode]);
+            }, [mode, speedValue, speedUnit, paramPhysical, objectLength, fovWidth, resolution, encoderPPR, divider, conveyorState.manualDivider, isSquarePixel]);
 
             const resetSimulation = () => {
                 simRef.current = {
@@ -139,13 +173,57 @@
                 setSimState({...simRef.current});
             };
 
-            // --- 4. Core Calculations ---
-            const linesPerRev = useMemo(() => encoderPPR / divider, [encoderPPR, divider]);
+            // --- 4. Core Calculations (Adaptive Logic) ---
             
-            // Circumference: Roller = PI*D, Conveyor = Pitch
+            // A. Target Resolution (mm/pixel) - Crucial for Conveyor
+            const targetResMm = useMemo(() => {
+                if (mode === 'conveyor' && resolution > 0) {
+                    return fovWidth / resolution;
+                }
+                return 0; 
+            }, [mode, fovWidth, resolution]);
+
+            // B. Divider Calculation
+            // Roller: Manual Input
+            // Conveyor: Calculated based on Target Res OR Manual
+            const activeDivider = useMemo(() => {
+                if (mode === 'roller') return divider;
+                
+                // Conveyor Logic
+                if (isSquarePixel) {
+                    // Auto-calculate for Square Pixel
+                    if (encoderPPR > 0 && paramPhysical > 0) {
+                        const rawRes = paramPhysical / encoderPPR;
+                        const calculated = targetResMm / rawRes;
+                        return Math.max(1, Math.round(calculated)); // Integer divider
+                    }
+                    return 1;
+                } else {
+                    // Manual Input (Decoupled)
+                    return conveyorState.manualDivider;
+                }
+            }, [mode, divider, targetResMm, paramPhysical, encoderPPR, isSquarePixel, conveyorState.manualDivider]);
+
+            // Re-introduced linesPerRev definition using activeDivider
+            const linesPerRev = useMemo(() => encoderPPR / activeDivider, [encoderPPR, activeDivider]);
+
+            // C. Final Resolution (Actual Y)
+            const finalResMm = useMemo(() => {
+                if (mode === 'roller') {
+                    const circumference = Math.PI * paramPhysical;
+                    return circumference / (encoderPPR / activeDivider);
+                } else {
+                    // Conveyor
+                    const rawRes = paramPhysical / encoderPPR;
+                    return rawRes * activeDivider;
+                }
+            }, [mode, paramPhysical, encoderPPR, activeDivider]);
+
+            const finalResUm = finalResMm * 1000;
+
+            // D. Speed & Rate
             const circumference = useMemo(() => mode === 'roller' ? Math.PI * paramPhysical : paramPhysical, [paramPhysical, mode]);
 
-            // Normalized Speed (Encoder Shaft Rev/s)
             const encoderRevPerSec = useMemo(() => {
                 if (speedUnit === 'rev_s') return speedValue;
                 if (speedUnit === 'rpm') return speedValue / 60;
@@ -158,9 +236,14 @@
                 return 0;
             }, [speedValue, speedUnit, circumference]);
 
-            // Derived Physics
             const linearSpeedMmPerSec = useMemo(() => encoderRevPerSec * circumference, [encoderRevPerSec, circumference]);
-            const lineRateHz = encoderRevPerSec * linesPerRev;
+            
+            // Line Rate
+            const lineRateHz = useMemo(() => {
+                if (finalResMm > 0) return linearSpeedMmPerSec / finalResMm;
+                return 0;
+            }, [linearSpeedMmPerSec, finalResMm]);
+
             const linePeriodUs = lineRateHz > 0 ? (1000000 / lineRateHz) : 0;
             const maxExposureUs = linePeriodUs; 
             
@@ -168,13 +251,17 @@
             const bytesPerSec = useMemo(() => (resolution * lineRateHz * bitDepth) / 8, [resolution, lineRateHz, bitDepth]);
             const throughputMBps = useMemo(() => bytesPerSec / 1000000, [bytesPerSec]);
 
-            // Physical Resolutions
-            const resolutionY_mm = useMemo(() => circumference / linesPerRev, [circumference, linesPerRev]);
-            const resolutionY_um = useMemo(() => resolutionY_mm * 1000, [resolutionY_mm]);
-            const linesRequiredForObject = useMemo(() => objectLength / resolutionY_mm, [objectLength, resolutionY_mm]);
-            const physicalLengthOfFrame = useMemo(() => frameBufferLines * resolutionY_mm, [frameBufferLines, resolutionY_mm]);
+            // Frame Lines
+            const linesRequiredForObject = useMemo(() => objectLength / finalResMm, [objectLength, finalResMm]);
+            const physicalLengthOfFrame = useMemo(() => frameBufferLines * finalResMm, [frameBufferLines, finalResMm]);
 
-            // Camera Link Mode
+            // Aspect Ratio Check
+            const aspectRatio = useMemo(() => {
+                if (mode === 'roller') return 1;
+                if (targetResMm > 0) return finalResMm / targetResMm;
+                return 1;
+            }, [mode, targetResMm, finalResMm]);
+
             const clMode = useMemo(() => {
                 if (throughputMBps <= 255) return { name: 'Base', color: 'text-green-400', desc: '單一接頭, 頻寬充裕' };
                 if (throughputMBps <= 510) return { name: 'Medium', color: 'text-yellow-400', desc: '需雙接頭' };
@@ -183,22 +270,17 @@
                 return { name: 'Over Limit', color: 'text-red-600', desc: '超過 Camera Link 極限，需 CoaXPress' };
             }, [throughputMBps]);
 
-            // --- 5. PHYSICS ENGINE CONFIG ---
-            // Viewport Visual Scale
-            const VIEWPORT_REVS = 4; // Screen width = 4 revolutions
-            const viewportWidthMm = VIEWPORT_REVS * (mode === 'roller' ? circumference : paramPhysical); // Use physical pitch for conveyor scaling
+            // --- 5. PHYSICS ENGINE ---
+            const VIEWPORT_REVS = 4;
+            const viewportWidthMm = VIEWPORT_REVS * (mode === 'roller' ? circumference : paramPhysical); 
             
-            // Cycle Logic (Integer Alignment for seamless looping)
-            // Ensure cycle distance is integer multiple of "Pitch" so grid phase aligns
             const pitch = mode === 'roller' ? circumference : paramPhysical;
             const rawCycleDist = viewportWidthMm + objectLength;
             const cycleRevs = Math.ceil(rawCycleDist / pitch); 
             const cycleDistanceMm = cycleRevs * pitch;
-
-            // Trigger Position (Center of Viewport)
             const triggerPosMm = viewportWidthMm / 2;
 
-            // --- 6. Animation Loop ---
+            // Animation Loop
             useAnimationFrame((deltaTimeMs) => {
                 if (encoderRevPerSec <= 0) return;
 
@@ -209,66 +291,49 @@
                 let newDist = prevDist + dMove;
                 let newRunCount = simRef.current.runCount;
 
-                // Loop Wrapping
                 if (newDist >= cycleDistanceMm) {
                     newDist = newDist % cycleDistanceMm;
                     newRunCount++;
                 }
 
-                // Trigger Logic (Rising Edge)
-                const crossed = (prevDist < triggerPosMm && newDist >= triggerPosMm);
-                const wrapped = newDist < prevDist; // Just wrapped around
-                const justTriggered = crossed && !wrapped;
-
-                // DI0 State Logic (Active Region)
-                // Item is from (newDist - objectLength) to newDist.
-                // Sensor is at triggerPosMm.
-                const isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+                // DI0 State Logic
+                let isDi0On = false;
+                
+                if (mode === 'conveyor') {
+                    // Conveyor Mode: Trigger when Item passes center
+                    // Active region: Trigger Point to Trigger Point + Object Length
+                    isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+                } else {
+                    // Roller Mode: Trigger ONCE per revolution (at Home/Index)
+                    // Visual notch is at 0 degrees.
+                    // We light up for a short duration (e.g. 15% of circle) every time we pass 0
+                    const revDist = newDist % circumference;
+                    isDi0On = revDist < (circumference * 0.15); // Active for first 15% of every revolution
+                }
 
                 // --- Visual Updates (Direct DOM) ---
                 if (mode === 'conveyor') {
-                    // Belt Grid: 1 Grid = 1/5 Rev (Pitch). 
-                    // To show 5 grids per rev, we need background-size to be (ViewportWidth / (4 * 5)).
-                    // Shift based on distance.
                     const shiftPercent = (newDist / viewportWidthMm) * 100;
-                    if (beltRef.current) {
-                        beltRef.current.style.backgroundPositionX = `-${shiftPercent}%`;
-                    }
-                    // Item
+                    if (beltRef.current) beltRef.current.style.backgroundPositionX = `-${shiftPercent}%`;
                     const leftPercent = ((newDist - objectLength) / viewportWidthMm) * 100;
-                    if (itemRef.current) {
-                        itemRef.current.style.left = `${leftPercent}%`;
-                    }
-                    // Wheel
+                    if (itemRef.current) itemRef.current.style.left = `${leftPercent}%`;
                     const angle = (newDist / paramPhysical) * 360;
-                    if (wheelRef.current) {
-                        wheelRef.current.style.transform = `rotate(${angle}deg)`;
-                    }
+                    if (wheelRef.current) wheelRef.current.style.transform = `rotate(${angle}deg)`;
                 } else {
                     // Roller Mode
-                    // Rotate the main roller
                     const angle = (newDist / circumference) * 360; 
-                    if (rollerRef.current) {
-                        rollerRef.current.style.transform = `rotate(${angle}deg)`;
-                    }
+                    if (rollerRef.current) rollerRef.current.style.transform = `rotate(${angle}deg)`;
                 }
 
-                // Update State (Throttled if needed, but here simple)
                 simRef.current.distTraveled = newDist;
                 simRef.current.runCount = newRunCount;
                 simRef.current.di0 = isDi0On;
 
                 if (simState.di0 !== isDi0On || simState.runCount !== newRunCount) {
-                    setSimState(prev => ({
-                        ...prev,
-                        distTraveled: newDist,
-                        runCount: newRunCount,
-                        di0: isDi0On
-                    }));
+                    setSimState(prev => ({ ...prev, distTraveled: newDist, runCount: newRunCount, di0: isDi0On }));
                 }
             });
 
-            // Visual Helpers for JSX
             const getItemWidthPercent = () => (objectLength / viewportWidthMm) * 100;
             const objectArcLength = (objectLength / circumference) * 360; 
 
@@ -282,7 +347,7 @@
                                 <i className="ph ph-scan text-4xl text-blue-500"></i>
                                 <div>
                                     <h1 className="text-3xl font-bold text-white tracking-tight">Line Scan Master</h1>
-                                    <p className="text-slate-400 text-sm">線掃描同步計算實驗室 | V3.0 物理引擎版</p>
+                                    <p className="text-slate-400 text-sm">線掃描同步計算實驗室 | V3.3 彈性對齊版</p>
                                 </div>
                             </div>
                             <div className="bg-slate-800 p-1 rounded-lg flex border border-slate-700">
@@ -307,12 +372,12 @@
                                     <div>
                                         <label className="block text-slate-400 text-xs mb-1">{mode === 'roller' ? '滾輪轉速 (Speed)' : '輸送帶速度 (Line Speed)'}</label>
                                         <div className="flex gap-2">
-                                            <input type="number" value={speedValue} onChange={(e) => setSpeedValue(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
-                                            <select value={speedUnit} onChange={(e) => setSpeedUnit(e.target.value)} className="bg-slate-700 border border-slate-600 rounded px-1 text-white text-xs focus:outline-none">
+                                            <input type="number" value={speedValue} onChange={(e) => updateActiveState('speed', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            <select value={speedUnit} onChange={(e) => updateActiveState('unit', e.target.value)} className="bg-slate-700 border border-slate-600 rounded px-1 text-white text-xs focus:outline-none">
                                                 {mode === 'roller' && <option value="rev_s">rev/s</option>}
                                                 {mode === 'roller' && <option value="rpm">RPM</option>}
-                                                <option value="m_min">m/min</option>
-                                                <option value="mm_s">mm/s</option>
+                                                {mode === 'conveyor' && <option value="m_min">m/min</option>}
+                                                {mode === 'conveyor' && <option value="mm_s">mm/s</option>}
                                             </select>
                                         </div>
                                     </div>
@@ -322,8 +387,24 @@
                                             <input type="number" value={encoderPPR} onChange={(e) => setEncoderPPR(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
                                         </div>
                                         <div className="col-span-3">
-                                            <label className="block text-slate-400 text-xs mb-1">Divider (Pulses Per Line)</label>
-                                            <input type="number" value={divider} onChange={(e) => setDivider(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            <label className="block text-slate-400 text-xs mb-1 flex justify-between">
+                                                <span>Divider Ratio</span>
+                                                {mode === 'conveyor' && !isSquarePixel && <span className="text-[10px] text-yellow-400 font-bold">*MANUAL</span>}
+                                            </label>
+                                            
+                                            {mode === 'roller' ? (
+                                                <input type="number" value={divider} onChange={(e) => setDivider(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            ) : (
+                                                // Conveyor Mode Input
+                                                isSquarePixel ? (
+                                                    <div className="bg-slate-900/50 border border-slate-600/50 rounded px-2 py-1.5 w-full text-emerald-400 font-mono text-sm font-bold flex items-center justify-between">
+                                                        <span>{activeDivider} (Auto)</span>
+                                                        <i className="ph ph-lock-key text-slate-500 text-xs"></i>
+                                                    </div>
+                                                ) : (
+                                                    <input type="number" value={conveyorState.manualDivider} onChange={(e) => updateActiveState('manualDivider', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-yellow-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-yellow-500 focus:outline-none" />
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -340,12 +421,12 @@
                                         <label className="block text-slate-400 text-xs mb-1">
                                             {mode === 'roller' ? '滾輪直徑 (Roller Diameter, mm)' : '每圈行程 (Travel/Rev, mm)'}
                                         </label>
-                                        <input type="number" value={paramPhysical} onChange={(e) => setParamPhysical(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                        <input type="number" value={paramPhysical} onChange={(e) => updateActiveState(mode === 'roller' ? 'diameter' : 'pitch', parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-slate-400 text-xs mb-1">物件長度 (mm)</label>
-                                            <input type="number" value={objectLength} onChange={(e) => setObjectLength(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                            <input type="number" value={objectLength} onChange={(e) => updateActiveState('length', parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
                                         </div>
                                         <div>
                                             <label className="block text-slate-400 text-xs mb-1">Frame Lines</label>
@@ -360,7 +441,7 @@
                                 <h2 className="text-md font-bold mb-4 flex items-center gap-2 text-purple-300 border-b border-slate-700 pb-2">
                                     <i className="ph ph-camera"></i> 相機規格
                                 </h2>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-3 mb-3">
                                     <div>
                                         <label className="block text-slate-400 text-xs mb-1">寬度 (Pixels)</label>
                                         <input type="number" value={resolution} onChange={(e) => setResolution(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-500 focus:outline-none" />
@@ -374,6 +455,32 @@
                                         </select>
                                     </div>
                                 </div>
+                                
+                                {mode === 'conveyor' && (
+                                    <div className={`p-2 rounded border transition-colors ${isSquarePixel ? 'bg-purple-900/30 border-purple-500/50' : 'bg-slate-800 border-slate-600'}`}>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="text-purple-300 text-xs font-bold">FOV 視野寬度 (mm)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSquarePixel} 
+                                                    onChange={(e) => setIsSquarePixel(e.target.checked)} 
+                                                    className="w-3 h-3 accent-purple-500"
+                                                />
+                                                <span className="text-[10px] text-slate-400">鎖定正方形像素</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <input type="number" value={conveyorState.fov} onChange={(e) => updateActiveState('fov', parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-400 focus:outline-none" />
+                                            <div className="flex flex-col text-[10px] leading-tight">
+                                                <span className="text-slate-400">X-Res: {targetResMm.toFixed(3)} mm</span>
+                                                <span className={`${Math.abs(aspectRatio-1) < 0.05 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    Y-Res: {finalResMm.toFixed(3)} mm
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -468,7 +575,7 @@
                                 </h3>
                                 <div className="flex justify-between items-center mb-3 text-sm">
                                     <span className="text-slate-400">Y 軸解析度:</span>
-                                    <span className="font-mono text-white">{resolutionY_um.toFixed(2)} μm/line</span>
+                                    <span className="font-mono text-white">{finalResUm.toFixed(2)} μm/line</span>
                                 </div>
                                 <div className="flex justify-between items-center mb-3 text-sm">
                                     <span className="text-slate-400">物件 ({objectLength}mm) 需:</span>
@@ -482,7 +589,7 @@
                                 <div className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${physicalLengthOfFrame >= objectLength ? 'bg-green-900/30 text-green-300 border border-green-800' : 'bg-red-900/30 text-red-300 border border-red-800'}`}>
                                     {physicalLengthOfFrame >= objectLength 
                                         ? <><i className="ph ph-check-circle text-lg"></i> 設定足夠！</>
-                                        : <><i className="ph ph-warning text-lg"></i> Frame 太短！缺 {Math.abs(physicalLengthOfFrame - objectLength).toFixed(1)}mm</>
+                                        : <><i className="ph ph-warning text-lg"></i> Frame Lines 不足！缺 {Math.abs(physicalLengthOfFrame - objectLength).toFixed(1)}mm</>
                                     }
                                 </div>
                             </div>
@@ -502,14 +609,28 @@
                                     <i className="ph ph-wave-sine text-3xl text-blue-500"></i>
                                 </div>
                                 <div className="mt-3 text-xs text-blue-200/60 bg-blue-900/30 p-2 rounded">
-                                    <div className="flex justify-between mb-1 text-blue-300">
-                                        <span>每圈線數 (PPR ÷ Div):</span>
-                                        <span className="font-mono">{encoderPPR} ÷ {divider} = {Math.round(linesPerRev).toLocaleString()}</span>
-                                    </div>
+                                    {mode === 'roller' ? (
+                                        <div className="flex justify-between mb-1 text-blue-300">
+                                            <span>每圈線數 (PPR ÷ Div):</span>
+                                            <span className="font-mono">{encoderPPR} ÷ {activeDivider} = {Math.round(linesPerRev).toLocaleString()}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-between mb-1 text-blue-300">
+                                            <span>解析度 (FOV ÷ Pixels):</span>
+                                            <span className="font-mono">{targetResMm.toFixed(3)} mm</span>
+                                        </div>
+                                    )}
+                                    
                                     <div className="pt-1 border-t border-blue-500/30 text-blue-100 flex justify-between items-center">
-                                        <span>頻率 (Rev/s × Lines):</span>
+                                        <span>
+                                            {mode === 'roller' ? '頻率 (Rev/s × Lines):' : '頻率 (速度 ÷ 解析度):'}
+                                        </span>
                                         <span className="font-mono">
-                                            {encoderRevPerSec.toFixed(2)} × {Math.round(linesPerRev).toLocaleString()} = <span className="font-bold text-white">{Math.round(lineRateHz).toLocaleString()} Hz</span>
+                                            {mode === 'roller' 
+                                                ? `${encoderRevPerSec.toFixed(2)} × ${Math.round(linesPerRev).toLocaleString()}`
+                                                : `${linearSpeedMmPerSec.toFixed(1)} ÷ ${targetResMm.toFixed(3)}`
+                                            }
+                                            = <span className="font-bold text-white">{Math.round(lineRateHz).toLocaleString()} Hz</span>
                                         </span>
                                     </div>
                                 </div>
@@ -555,21 +676,83 @@
 
                     {/* Footer Guide Sections */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        
+                        {/* 1. Resolution / Divider Logic */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-blue-400 font-bold text-xs mb-2">解析度定義</h3>
-                            <p className="text-slate-400 text-xs">Y 軸解析度 = (每圈行程或圓周長) / (PPR / Divider)。決定了掃描影像在運動方向上的精度。</p>
+                            <h3 className="text-blue-400 font-bold text-xs mb-2">
+                                {mode === 'roller' ? 'Divider (除頻) 設定' : 'Divider (除頻) 反推'}
+                            </h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller' 
+                                    ? '滾輪模式下，Divider 是「輸入參數」。決定每隔多少 encoder pulse 觸發一次，進而決定 Y 軸解析度。' 
+                                    : '輸送帶模式下，Divider 是「計算結果」。為了讓 Y 軸解析度匹配 X 軸 (FOV)，系統自動反推除頻數。'}
+                            </p>
+                            <div className="text-[10px] text-blue-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-blue-900/30">
+                                {mode === 'roller' ? (
+                                    <>
+                                        <div>Lines/Rev = PPR / Divider</div>
+                                        <div className="mt-1">設定越高 -> 解析度越粗 -> 視野越長</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>1. 目標 Res = FOV / Pixels</div>
+                                        <div>2. 原始 Res = Pitch / PPR</div>
+                                        <div className="text-blue-200 font-bold mt-1">3. Divider = 目標 / 原始</div>
+                                    </>
+                                )}
+                            </div>
                         </div>
+
+                        {/* 2. Speed / Rate Logic */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                            <h3 className="text-emerald-400 font-bold text-xs mb-2">Frame Height</h3>
-                            <p className="text-slate-400 text-xs">物件完整成像所需線數 = 物件長度 / 解析度。設定 Frame Buffer 時需大於此數值以免切圖。</p>
+                            <h3 className="text-purple-400 font-bold text-xs mb-2">Line Rate (頻率) 算法</h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller'
+                                    ? '滾輪看的是「角速度」。轉得越快，或一圈切得越細，頻率就越高。'
+                                    : '輸送帶看的是「線速度」。跑得越快，或解析度越細(pixel越小)，頻率就越高。'}
+                            </p>
+                            <div className="text-[10px] text-purple-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-purple-900/30">
+                                {mode === 'roller' ? (
+                                    <>
+                                        <div>1. 轉速 = RPM / 60 (rev/s)</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 轉速 × (PPR/Div)</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>1. 速度換算: m/min → mm/s</div>
+                                        <div className="text-purple-200 font-bold mt-1">2. Hz = 線速度 / 解析度</div>
+                                    </>
+                                )}
+                            </div>
                         </div>
+
+                        {/* 3. Resolution Definition */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                             <h3 className="text-purple-400 font-bold text-xs mb-2">曝光限制</h3>
-                             <p className="text-slate-400 text-xs">Line Rate 越高，曝光時間越短 (1/Hz)。若曝光不足需增強光源或降低產線速度。</p>
+                            <h3 className="text-emerald-400 font-bold text-xs mb-2">解析度定義 (Resolution)</h3>
+                            <p className="text-slate-400 text-xs mb-2">
+                                {mode === 'roller'
+                                    ? '由「圓周長」與「切分數量」決定。這是由硬體規格順推出來的結果。'
+                                    : '由「FOV 視野」與「相機像素」決定。這是由設計目標反推硬體需求的起點。'}
+                            </p>
+                            <div className="text-[10px] text-emerald-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-emerald-900/30">
+                                {mode === 'roller' ? (
+                                    <div className="text-emerald-200 font-bold">Res = 圓周長 / (PPR/Div)</div>
+                                ) : (
+                                    <div className="text-emerald-200 font-bold">Target Res = FOV / Pixels</div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* 4. Sync Control */}
                         <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
-                             <h3 className="text-yellow-400 font-bold text-xs mb-2">同步控制</h3>
-                             <p className="text-slate-400 text-xs">確保 DI0 觸發訊號與編碼器計數同步，避免影像起始位置漂移 (如上方模擬所示)。</p>
+                             <h3 className="text-yellow-400 font-bold text-xs mb-2">Frame Height (畫格高度)</h3>
+                             <p className="text-slate-400 text-xs mb-2">
+                                無論哪種模式，都必須確保 Frame Buffer 足夠大，才能容納完整的物件影像。
+                             </p>
+                             <div className="text-[10px] text-yellow-200/70 font-mono bg-slate-900/50 p-1.5 rounded border border-yellow-900/30">
+                                <div>所需 Lines = 物件長度 / 解析度</div>
+                                <div className="mt-1 text-yellow-500">若 Frame &lt; 所需 Lines 則會切圖</div>
+                            </div>
                         </div>
                     </div>
 
