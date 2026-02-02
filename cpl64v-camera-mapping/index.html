@@ -3,434 +3,582 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CPL64V Portal</title>
+    <title>Line Scan Master - 線掃描同步計算實驗室</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons (for icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
     <style>
-        body { margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        /* Header */
-        header { 
-            background: #1e293b; color: white; padding: 0 20px; height: 50px; 
-            display: flex; align-items: center; justify-content: space-between; 
-            border-bottom: 1px solid #334155; flex-shrink: 0;
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
         }
-        h1 { margin: 0; font-size: 18px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
         
-        /* Layout */
-        .main-container { display: flex; flex: 1; overflow: hidden; }
-        
-        /* Sidebar */
-        .sidebar-list { width: 320px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
-        .filter-section { padding: 15px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; flex-direction: column; gap: 10px; }
-        .filter-label { font-size: 11px; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-        .filter-select { width: 100%; background: #334155; color: white; border: 1px solid #475569; padding: 8px; border-radius: 6px; font-size: 14px; outline: none; }
-        .filter-select:disabled { opacity: 0.5; cursor: not-allowed; }
-        .filter-select:focus { border-color: #2563eb; }
-        .list-header { padding: 10px 15px; color: #64748b; font-size: 11px; font-weight: bold; background: #162032; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
-        
-        /* List */
-        .camera-list { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
-        .camera-item { padding: 12px 15px; border-bottom: 1px solid #334155; cursor: pointer; transition: background 0.2s; display: flex; gap: 12px; align-items: center; }
-        .camera-item:hover { background: #334155; }
-        .camera-item.active { background: #2563eb; border-color: #2563eb; }
-        .camera-item.active .info-variant { color: white; }
-        .item-thumb { width: 60px; height: 45px; object-fit: cover; border-radius: 4px; background: #0f172a; border: 1px solid #475569; flex-shrink: 0; }
-        .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-        .info-variant { font-size: 14px; color: #e2e8f0; font-weight: 500; }
-        .info-meta { font-size: 11px; color: #94a3b8; }
-        .list-empty { padding: 30px 20px; text-align: center; color: #64748b; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
 
-        /* Content Area */
-        .content-area { flex: 1; display: flex; position: relative; background: #0f172a; }
-        .panel-source { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; border-right: 1px solid #334155; background: #0f172a; }
-        .panel-target { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #0f172a; }
-        
-        /* UI Elements */
-        .panel-label { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); color: #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 5; border: 1px solid rgba(255,255,255,0.1); }
-        .loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(15,23,42,0.9); color: white; display: flex; justify-content: center; align-items: center; z-index: 20; font-size: 14px; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
-        .loading-overlay.active { opacity: 1; pointer-events: all; }
-        
-        /* Footer Info */
-        .info-footer { height: 140px; background: #1e293b; color: #e2e8f0; padding: 20px 30px; flex-shrink: 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: center; }
-        .info-title { font-size: 18px; font-weight: bold; color: #60a5fa; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-        .info-mapping { font-size: 14px; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-weight: normal; }
-        .info-desc { font-size: 14px; color: #94a3b8; line-height: 1.6; max-width: 800px; white-space: pre-wrap; }
-        .info-placeholder { color: #475569; font-style: italic; }
+        .card-gradient {
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        }
 
-        /* Misc */
-        .right-container { flex: 1; display: flex; flex-direction: column; background: #0f172a; overflow: hidden; }
-        .images-row { flex: 1; display: flex; overflow: hidden; border-bottom: 1px solid #334155; }
-        .demo-badge { background: #f59e0b; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 10px; display: none; }
-        .visitor-count { font-size: 12px; color: #94a3b8; background: #334155; padding: 4px 10px; border-radius: 20px; border: 1px solid #475569; display: flex; align-items: center; gap: 5px; }
-        .visitor-badge { display: block; height: 20px; }
-
-        .lang-select { background: #334155; color: white; border: 1px solid #475569; padding: 4px 8px; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; }
-        .scanning-text { animation: pulse 1.5s infinite; color: #2563eb; font-weight: bold; }
-        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        /* Utility for element centering */
+        .center-abs {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-<header>
-    <h1>🎯 CPL64V Portal <span style="font-size:14px; color:#94a3b8; margin-left:5px;">(前台瀏覽)</span> <span id="demoBadge" class="demo-badge">Demo</span></h1>
-    <div style="display:flex; align-items:center; gap:15px;">
-        <!-- 訪客計數器 (無 Firebase 版本 - Badge Only) -->
-        <div class="visitor-count-container" title="Total Views">
-            <div id="visitorBadge">Loading...</div>
-        </div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useLayoutEffect } = React;
 
-        <div style="display:flex; align-items:center; gap:10px;">
-            <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
-                <option value="en">English</option>
-                <option value="zh_TW" selected>繁體中文</option>
-                <option value="zh_CN">简体中文</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-            </select>
-        </div>
-    </div>
-</header>
+        // --- 1. Stabilized Animation Loop Hook ---
+        const useAnimationFrame = (callback) => {
+            const callbackRef = useRef(callback);
+            const requestRef = useRef();
+            const previousTimeRef = useRef();
 
-<div class="main-container">
-    <div class="sidebar-list">
-        <div class="filter-section">
-            <div>
-                <div class="filter-label" data-i18n="select_brand">1. Select Brand</div>
-                <select id="brandSelect" class="filter-select" onchange="onBrandChange()">
-                    <option value="" disabled selected data-i18n="default_brand">-- 選擇品牌 --</option>
-                </select>
-            </div>
-            <div>
-                <div class="filter-label" data-i18n="select_model">2. Select Model</div>
-                <select id="modelSelect" class="filter-select" disabled onchange="onModelChange()">
-                    <option value="" disabled selected data-i18n="default_model">-- 選擇型號 --</option>
-                </select>
-            </div>
-        </div>
-        <div class="list-header">
-            <span data-i18n="available_configs">AVAILABLE CONFIGS</span>
-            <span id="listCount">0 Items</span>
-        </div>
-        <ul class="camera-list" id="cameraListContainer">
-            <div class="list-empty"><span data-i18n="hint_select">👈 請先選擇品牌與型號</span></div>
-        </ul>
-    </div>
+            useLayoutEffect(() => {
+                callbackRef.current = callback;
+            }, [callback]);
 
-    <div class="right-container">
-        <div class="images-row">
-            <div class="panel-source" id="canvasWrapper" onwheel="handleZoom(event)">
-                <div class="panel-label" id="lblSource" data-i18n="label_source">📷 相機設定 (Source)</div>
-                <div id="loading" class="loading-overlay active" data-i18n="loading_text">請從左側列表選擇圖片</div>
-                <canvas id="mainCanvas"></canvas>
-            </div>
-            <div class="panel-target" id="targetWrapper" onwheel="handleTargetZoom(event)">
-                <div class="panel-label" data-i18n="label_target">🛠️ CPL64V 產品 (Target)</div>
-                <canvas id="targetCanvas"></canvas>
-            </div>
-        </div>
-        <div class="info-footer">
-            <div id="infoContent">
-                <div class="info-title">
-                    <span id="pNameDisplay">--</span>
-                    <span id="pMappingDisplay" class="info-mapping" style="display:none;"></span>
-                </div>
-                <div class="info-desc" id="pDescDisplay">
-                    <span class="info-placeholder" data-i18n="placeholder_desc">請將滑鼠游標移動到綠色框框上方以查看詳細說明。</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // 自動產生計數器圖片
-    function initVisitorBadge() {
-        const container = document.getElementById('visitorBadge');
-        container.innerHTML = ''; 
-        const currentUrl = window.location.host || 'local-dev';
-        const targetUrl = `https://${currentUrl}/`;
-        const img = document.createElement('img');
-        img.className = 'visitor-badge';
-        img.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(targetUrl)}&count_bg=%232563EB&title_bg=%231E293B&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false`;
-        img.alt = "Visitor Count";
-        container.appendChild(img);
-    }
-    initVisitorBadge();
-</script>
-
-<script>
-    // --- i18n ---
-    let currentLang = 'zh_TW';
-    const translations = {
-        en: { select_brand:"1. Select Brand", select_model:"2. Select Model", default_brand:"-- Select Brand --", default_model:"-- Select Model --", available_configs:"AVAILABLE CONFIGS", items_count:"{n} Items", hint_select:"👈 Select Brand & Model", label_source:"📷 Camera Settings (Source)", label_target:"🛠️ CPL64V Product (Target)", loading_text:"Select an image from the list", scanning:"🔍 Verifying images...", no_data:"No Data", valid_configs:"{n} Valid Configs", no_valid_images:"❌ No valid images", default_config:"Default Config", updated:"Updated: ", placeholder_desc:"Hover over the green boxes to see details.", no_desc:"No description available", mapped_to:"Mapped to: " },
-        zh_TW: { select_brand:"1. 選擇品牌", select_model:"2. 選擇型號", default_brand:"-- 選擇品牌 --", default_model:"-- 選擇型號 --", available_configs:"可用配置", items_count:"{n} 項目", hint_select:"👈 請先選擇品牌與型號", label_source:"📷 相機設定 (Source)", label_target:"🛠️ CPL64V 產品 (Target)", loading_text:"請從左側列表選擇圖片", scanning:"🔍 正在掃描圖片有效性...", no_data:"無資料", valid_configs:"{n} 個有效配置", no_valid_images:"❌ 無有效圖片資料", default_config:"預設配置", updated:"更新於: ", placeholder_desc:"請將滑鼠游標移動到綠色框框上方以查看詳細說明。", no_desc:"暫無詳細說明", mapped_to:"對應至: " },
-        zh_CN: { select_brand:"1. 选择品牌", select_model:"2. 选择型号", default_brand:"-- 选择品牌 --", default_model:"-- 选择型号 --", available_configs:"可用配置", items_count:"{n} 项目", hint_select:"👈 请先选择品牌与型号", label_source:"📷 相机设定 (Source)", label_target:"🛠️ CPL64V 产品 (Target)", loading_text:"请从左侧列表选择图片", scanning:"🔍 正在扫描图片有效性...", no_data:"无数据", valid_configs:"{n} 个有效配置", no_valid_images:"❌ 无有效图片数据", default_config:"默认配置", updated:"更新于: ", placeholder_desc:"请将鼠标光标移动到绿色框框上方以查看详细说明。", no_desc:"暂无详细说明", mapped_to:"对应至: " },
-        ja: { select_brand:"1. ブランドを選択", select_model:"2. モデルを選択", default_brand:"-- ブランドを選択 --", default_model:"-- モデルを選択 --", available_configs:"利用可能な設定", items_count:"{n} 項目", hint_select:"👈 ブランドとモデルを選択", label_source:"📷 カメラ設定 (Source)", label_target:"🛠️ CPL64V 製品 (Target)", loading_text:"左のリストから画像を選択", scanning:"🔍 画像を確認中...", no_data:"データなし", valid_configs:"{n} 有効な設定", no_valid_images:"❌ 有効な画像がありません", default_config:"デフォルト設定", updated:"更新日: ", placeholder_desc:"緑色の枠の上にマウスを置くと詳細が表示されます。", no_desc:"詳細なし", mapped_to:"マッピング: " },
-        ko: { select_brand:"1. 브랜드 선택", select_model:"2. 모델 선택", default_brand:"-- 브랜드 선택 --", default_model:"-- 모델 선택 --", available_configs:"사용 가능한 설정", items_count:"{n} 항목", hint_select:"👈 브랜드 및 모델 선택", label_source:"📷 카메라 설정 (Source)", label_target:"🛠️ CPL64V 제품 (Target)", loading_text:"왼쪽 목록에서 이미지를 선택하세요", scanning:"🔍 이미지 확인 중...", no_data:"데이터 없음", valid_configs:"{n} 유효한 설정", no_valid_images:"❌ 유효한 이미지가 없습니다", default_config:"기본 설정", updated:"업데이트: ", placeholder_desc:"녹색 상자 위로 마우스를 가져가면 자세한 내용이 표시됩니다.", no_desc:"상세 설명 없음", mapped_to:"매핑: " }
-    };
-    function t(key,p={}){let x=translations[currentLang][key]||key;for(let k in p)x=x.replace(`{${k}}`,p[k]);return x;}
-    function changeLanguage(l){currentLang=l;updateTexts();}
-    function getLocalizedDesc(d){if(!d)return t('no_desc');if(typeof d==='string')return d;return d[currentLang]||d['en']||t('no_desc');}
-    let displayedParam=null;
-    function updateTexts(){
-        document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(k)el.innerText=t(k);});
-        const bs=document.getElementById('brandSelect');if(bs.options[0].disabled)bs.options[0].text=t('default_brand');
-        const ms=document.getElementById('modelSelect');if(ms.options[0].disabled)ms.options[0].text=t('default_model');
-        const el=document.querySelector('.list-empty span');if(el&&!ms.value)el.innerText=t('hint_select');
-        const ld=document.getElementById('loading');if(ld.classList.contains('active')&&!currentCamera)ld.innerText=t('loading_text');
-        
-        const lblSource = document.getElementById('lblSource');
-        if (currentCamera) {
-             lblSource.innerText = `📷 Source: ${currentCamera.brand} - ${currentCamera.model}`;
-        } else {
-             lblSource.innerText = t('label_source');
-        }
-
-        if(displayedParam) updateInfoPanel(displayedParam);
-        else if(document.querySelector('.info-placeholder')) document.querySelector('.info-placeholder').innerText=t('placeholder_desc');
-    }
-
-    const GITHUB_USER='Darren-adlink', GITHUB_REPO='CPL64V', DATA_PATH='cpl64v-camera-mapping/data/cameras.json';
-    const DB_URL=`https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${DATA_PATH}`;
-    const canvas=document.getElementById('mainCanvas'), ctx=canvas.getContext('2d');
-    const targetCanvas=document.getElementById('targetCanvas'), targetCtx=targetCanvas.getContext('2d');
-    const brandSelect=document.getElementById('brandSelect'), modelSelect=document.getElementById('modelSelect'), listContainer=document.getElementById('cameraListContainer'), loading=document.getElementById('loading');
-    const elName=document.getElementById('pNameDisplay'), elMapping=document.getElementById('pMappingDisplay'), elDesc=document.getElementById('pDescDisplay');
-    
-    let fullDB={}, hierarchy={}, currentCamera=null, img=new Image(), targetImgObj=new Image();
-    let scale=1, offsetX=0, offsetY=0, targetScale=1, targetOffsetX=0, targetOffsetY=0;
-    // New State: selectedIndex (permanent) vs hoverIndex (transient)
-    let hoverIndex=-1, selectedIndex=-1; 
-    let isDragging=false, startX=0, startY=0, isDraggingTarget=false, startXTarget=0, startYTarget=0;
-
-    async function init(){
-        try{
-            const res=await fetch(`${DB_URL}?t=${Date.now()}`);
-            if(!res.ok)throw new Error(`HTTP ${res.status}`);
-            fullDB=await res.json(); buildHierarchy(); populateBrandSelect();
-        }catch(e){
-            console.warn("Load failed, using mock:",e);
-            document.getElementById('demoBadge').style.display='inline-block';
-            fullDB={};
-            buildHierarchy(); populateBrandSelect();
-        }
-        updateTexts();
-    }
-
-    function buildHierarchy(){
-        hierarchy={};
-        Object.keys(fullDB).forEach(k=>{
-            const e=fullDB[k], b=e.brand||"Unknown", m=e.model||"Unknown";
-            if(!hierarchy[b])hierarchy[b]={}; if(!hierarchy[b][m])hierarchy[b][m]=[];
-            hierarchy[b][m].push({id:k,...e});
-        });
-    }
-
-    function populateBrandSelect(){
-        brandSelect.innerHTML=`<option value="" disabled selected>${t('default_brand')}</option>`;
-        Object.keys(hierarchy).sort().forEach(b=>brandSelect.innerHTML+=`<option value="${b}">${b}</option>`);
-        modelSelect.innerHTML=`<option value="" disabled selected>${t('default_model')}</option>`;
-        modelSelect.disabled=true; listContainer.innerHTML=`<div class="list-empty"><span>${t('hint_select')}</span></div>`;
-    }
-
-    window.onBrandChange=()=>{
-        const b=brandSelect.value, ms=Object.keys(hierarchy[b]||{}).sort();
-        modelSelect.innerHTML=`<option value="" disabled selected>${t('default_model')}</option>`;
-        ms.forEach(m=>modelSelect.innerHTML+=`<option value="${m}">${m}</option>`);
-        modelSelect.disabled=false; listContainer.innerHTML=`<div class="list-empty"><span>${t('hint_select')}</span></div>`;
-        document.getElementById('listCount').innerText=t('items_count',{n:0});
-    };
-
-    window.onModelChange=async()=>{
-        const b=brandSelect.value, m=modelSelect.value, entries=hierarchy[b][m];
-        listContainer.innerHTML=`<div class="list-empty"><span class="scanning-text">${t('scanning')}</span></div>`;
-        document.getElementById('listCount').innerText="...";
-        if(!entries||!entries.length){ listContainer.innerHTML=`<div class="list-empty">${t('no_data')}</div>`; return;}
-        
-        const check=e=>new Promise(r=>{const i=new Image();i.onload=()=>r(e);i.onerror=()=>r(null);i.src=e.imageUrl+(e.imageUrl.includes('?')?'&':'?')+'t='+Date.now();});
-        const valid= (await Promise.all(entries.map(check))).filter(i=>i!==null);
-        valid.sort((a, b) => (a.variant || "").localeCompare(b.variant || ""));
-
-        listContainer.innerHTML=''; document.getElementById('listCount').innerText=t('valid_configs',{n:valid.length});
-        if(!valid.length){ listContainer.innerHTML=`<div class="list-empty">${t('no_valid_images')}</div>`; return; }
-        
-        valid.forEach(e=>{
-            const li=document.createElement('li'); li.className='camera-item';
-            li.innerHTML=`<img src="${e.imageUrl}" class="item-thumb"><div class="item-info"><span class="info-variant">${e.variant||t('default_config')}</span><span class="info-meta">${t('updated')}${new Date(e.updatedAt).toLocaleDateString()}</span></div>`;
-            li.onclick=()=>{
-                document.querySelectorAll('.camera-item').forEach(el=>el.classList.remove('active'));
-                li.classList.add('active'); loadCamera(e);
-            };
-            listContainer.appendChild(li);
-        });
-    };
-
-    function loadCamera(d){
-        currentCamera=d; loading.classList.add('active'); loading.innerText="Loading...";
-        document.getElementById('lblSource').innerText=`📷 Source: ${d.brand} - ${d.model}`;
-        updateInfoPanel(null);
-
-        img=new Image(); img.crossOrigin="Anonymous";
-        img.onload=()=>{
-            const c=document.getElementById('canvasWrapper'); canvas.width=c.clientWidth; canvas.height=c.clientHeight;
-            applyAutoZoomAndFocus(); loading.classList.remove('active'); draw();
-            
-            // Set initial selection
-            if (currentCamera.params && currentCamera.params.length > 0) {
-                updateInfoPanel(currentCamera.params[0]);
-            }
+            useEffect(() => {
+                const animate = time => {
+                    if (previousTimeRef.current != undefined) {
+                        const deltaTime = time - previousTimeRef.current;
+                        callbackRef.current(deltaTime);
+                    }
+                    previousTimeRef.current = time;
+                    requestRef.current = requestAnimationFrame(animate);
+                }
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, []);
         };
-        img.onerror=()=>{loading.innerText="Error";}; img.src=d.imageUrl;
 
-        targetImgObj=new Image(); targetImgObj.crossOrigin="Anonymous";
-        targetImgObj.onload=()=>{resetView('target');drawTarget();};
-        targetImgObj.src=d.targetImageUrl||"https://placehold.co/600x400/1e293b/fff?text=No+Target+Image";
-    }
+        function App() {
+            // --- 2. State Management ---
+            const [mode, setMode] = useState('conveyor'); // Default mode
 
-    function applyAutoZoomAndFocus(){
-        const container = document.getElementById('canvasWrapper');
-        if(canvas.width!==container.clientWidth||canvas.height!==container.clientHeight){canvas.width=container.clientWidth;canvas.height=container.clientHeight;}
-
-        if(currentCamera.params.length){
-            const p=currentCamera.params[0].roi;
-            const targetMinSide = 200;
-            const roiMinSide = Math.min(p.w, p.h);
-            let scaleByDetail = targetMinSide / roiMinSide;
-            const margin = 40;
-            const availableW = canvas.width - margin;
-            const availableH = canvas.height - margin;
-            let scaleByFit = Math.min(availableW / p.w, availableH / p.h);
-            scale = Math.min(Math.max(Math.min(scaleByDetail, scaleByFit), 0.1), 5.0);
+            // Inputs
+            const [speedValue, setSpeedValue] = useState(3); // Default to 3
+            const [speedUnit, setSpeedUnit] = useState('m_min');
+            const [encoderPPR, setEncoderPPR] = useState(360000);
+            const [divider, setDivider] = useState(30);
             
-            offsetX=(canvas.width/2)-((p.x+p.w/2)*scale);
-            offsetY=(canvas.height/2)-((p.y+p.h/2)*scale);
+            const [paramPhysical, setParamPhysical] = useState(100); // Roller Dia or Pitch (mm)
+            const [objectLength, setObjectLength] = useState(75); // mm
+            const [frameBufferLines, setFrameBufferLines] = useState(6000); 
+
+            const [resolution, setResolution] = useState(8192);
+            const [bitDepth, setBitDepth] = useState(8);
+
+            // Simulation State (for React UI updates)
+            const [simState, setSimState] = useState({
+                distTraveled: 0,
+                runCount: 1,
+                di0: false
+            });
             
-            // Set initial selected index
-            selectedIndex = 0;
-            hoverIndex = -1;
-        }else{
-            scale=Math.min((canvas.width-40)/img.width,(canvas.height-40)/img.height);
-            offsetX=(canvas.width-img.width*scale)/2; offsetY=(canvas.height-img.height*scale)/2;
-            selectedIndex = -1;
-            hoverIndex = -1;
+            // Simulation Refs (Mutable state for Physics Loop)
+            const simRef = useRef({
+                distTraveled: 0,
+                runCount: 1,
+                di0: false,
+                startTime: 0
+            });
+
+            // DOM Refs for direct manipulation (High Performance)
+            const beltRef = useRef(null);
+            const itemRef = useRef(null);
+            const wheelRef = useRef(null); // Conveyor Encoder Wheel
+            const rollerRef = useRef(null); // Roller Mode Main Wheel
+
+            // --- 3. Defaults & Reset Logic ---
+            useEffect(() => {
+                if (mode === 'conveyor') {
+                    if (speedUnit === 'rev_s' || speedUnit === 'rpm') setSpeedUnit('m_min');
+                    // Set default speed to 3 for conveyor mode
+                    setSpeedValue(3); 
+                    setParamPhysical(100); // Pitch 100mm
+                    setObjectLength(50);   // Item 50mm
+                } else {
+                    if (speedUnit === 'm_min' || speedUnit === 'mm_s') setSpeedUnit('rev_s');
+                    if (speedValue === 3) setSpeedValue(1); 
+                    setParamPhysical(100); // Diameter 100mm
+                    setObjectLength(150);  // Item 150mm
+                }
+                resetSimulation();
+            }, [mode]);
+
+            const resetSimulation = () => {
+                simRef.current = {
+                    distTraveled: 0,
+                    runCount: 1,
+                    di0: false,
+                    startTime: performance.now()
+                };
+                setSimState({...simRef.current});
+            };
+
+            // --- 4. Core Calculations ---
+            const linesPerRev = useMemo(() => encoderPPR / divider, [encoderPPR, divider]);
+            
+            // Circumference: Roller = PI*D, Conveyor = Pitch
+            const circumference = useMemo(() => mode === 'roller' ? Math.PI * paramPhysical : paramPhysical, [paramPhysical, mode]);
+
+            // Normalized Speed (Encoder Shaft Rev/s)
+            const encoderRevPerSec = useMemo(() => {
+                if (speedUnit === 'rev_s') return speedValue;
+                if (speedUnit === 'rpm') return speedValue / 60;
+                
+                let linearSpeedMmPerSec = 0;
+                if (speedUnit === 'mm_s') linearSpeedMmPerSec = speedValue;
+                if (speedUnit === 'm_min') linearSpeedMmPerSec = (speedValue * 1000) / 60;
+                
+                if (circumference > 0) return linearSpeedMmPerSec / circumference;
+                return 0;
+            }, [speedValue, speedUnit, circumference]);
+
+            // Derived Physics
+            const linearSpeedMmPerSec = useMemo(() => encoderRevPerSec * circumference, [encoderRevPerSec, circumference]);
+            const lineRateHz = encoderRevPerSec * linesPerRev;
+            const linePeriodUs = lineRateHz > 0 ? (1000000 / lineRateHz) : 0;
+            const maxExposureUs = linePeriodUs; 
+            
+            // Bandwidth
+            const bytesPerSec = useMemo(() => (resolution * lineRateHz * bitDepth) / 8, [resolution, lineRateHz, bitDepth]);
+            const throughputMBps = useMemo(() => bytesPerSec / 1000000, [bytesPerSec]);
+
+            // Physical Resolutions
+            const resolutionY_mm = useMemo(() => circumference / linesPerRev, [circumference, linesPerRev]);
+            const resolutionY_um = useMemo(() => resolutionY_mm * 1000, [resolutionY_mm]);
+            const linesRequiredForObject = useMemo(() => objectLength / resolutionY_mm, [objectLength, resolutionY_mm]);
+            const physicalLengthOfFrame = useMemo(() => frameBufferLines * resolutionY_mm, [frameBufferLines, resolutionY_mm]);
+
+            // Camera Link Mode
+            const clMode = useMemo(() => {
+                if (throughputMBps <= 255) return { name: 'Base', color: 'text-green-400', desc: '單一接頭, 頻寬充裕' };
+                if (throughputMBps <= 510) return { name: 'Medium', color: 'text-yellow-400', desc: '需雙接頭' };
+                if (throughputMBps <= 680) return { name: 'Full', color: 'text-orange-400', desc: '需雙接頭, 8 Tap' };
+                if (throughputMBps <= 850) return { name: 'Deca (80-bit)', color: 'text-red-400', desc: '極限模式, 線材要求高' };
+                return { name: 'Over Limit', color: 'text-red-600', desc: '超過 Camera Link 極限，需 CoaXPress' };
+            }, [throughputMBps]);
+
+            // --- 5. PHYSICS ENGINE CONFIG ---
+            // Viewport Visual Scale
+            const VIEWPORT_REVS = 4; // Screen width = 4 revolutions
+            const viewportWidthMm = VIEWPORT_REVS * (mode === 'roller' ? circumference : paramPhysical); // Use physical pitch for conveyor scaling
+            
+            // Cycle Logic (Integer Alignment for seamless looping)
+            // Ensure cycle distance is integer multiple of "Pitch" so grid phase aligns
+            const pitch = mode === 'roller' ? circumference : paramPhysical;
+            const rawCycleDist = viewportWidthMm + objectLength;
+            const cycleRevs = Math.ceil(rawCycleDist / pitch); 
+            const cycleDistanceMm = cycleRevs * pitch;
+
+            // Trigger Position (Center of Viewport)
+            const triggerPosMm = viewportWidthMm / 2;
+
+            // --- 6. Animation Loop ---
+            useAnimationFrame((deltaTimeMs) => {
+                if (encoderRevPerSec <= 0) return;
+
+                const dtSec = deltaTimeMs / 1000;
+                const dMove = linearSpeedMmPerSec * dtSec; 
+
+                const prevDist = simRef.current.distTraveled;
+                let newDist = prevDist + dMove;
+                let newRunCount = simRef.current.runCount;
+
+                // Loop Wrapping
+                if (newDist >= cycleDistanceMm) {
+                    newDist = newDist % cycleDistanceMm;
+                    newRunCount++;
+                }
+
+                // Trigger Logic (Rising Edge)
+                const crossed = (prevDist < triggerPosMm && newDist >= triggerPosMm);
+                const wrapped = newDist < prevDist; // Just wrapped around
+                const justTriggered = crossed && !wrapped;
+
+                // DI0 State Logic (Active Region)
+                // Item is from (newDist - objectLength) to newDist.
+                // Sensor is at triggerPosMm.
+                const isDi0On = (newDist > triggerPosMm) && (newDist < triggerPosMm + objectLength);
+
+                // --- Visual Updates (Direct DOM) ---
+                if (mode === 'conveyor') {
+                    // Belt Grid: 1 Grid = 1/5 Rev (Pitch). 
+                    // To show 5 grids per rev, we need background-size to be (ViewportWidth / (4 * 5)).
+                    // Shift based on distance.
+                    const shiftPercent = (newDist / viewportWidthMm) * 100;
+                    if (beltRef.current) {
+                        beltRef.current.style.backgroundPositionX = `-${shiftPercent}%`;
+                    }
+                    // Item
+                    const leftPercent = ((newDist - objectLength) / viewportWidthMm) * 100;
+                    if (itemRef.current) {
+                        itemRef.current.style.left = `${leftPercent}%`;
+                    }
+                    // Wheel
+                    const angle = (newDist / paramPhysical) * 360;
+                    if (wheelRef.current) {
+                        wheelRef.current.style.transform = `rotate(${angle}deg)`;
+                    }
+                } else {
+                    // Roller Mode
+                    // Rotate the main roller
+                    const angle = (newDist / circumference) * 360; 
+                    if (rollerRef.current) {
+                        rollerRef.current.style.transform = `rotate(${angle}deg)`;
+                    }
+                }
+
+                // Update State (Throttled if needed, but here simple)
+                simRef.current.distTraveled = newDist;
+                simRef.current.runCount = newRunCount;
+                simRef.current.di0 = isDi0On;
+
+                if (simState.di0 !== isDi0On || simState.runCount !== newRunCount) {
+                    setSimState(prev => ({
+                        ...prev,
+                        distTraveled: newDist,
+                        runCount: newRunCount,
+                        di0: isDi0On
+                    }));
+                }
+            });
+
+            // Visual Helpers for JSX
+            const getItemWidthPercent = () => (objectLength / viewportWidthMm) * 100;
+            const objectArcLength = (objectLength / circumference) * 360; 
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-[1400px] mx-auto pb-12">
+                    
+                    {/* Header */}
+                    <header className="mb-8 border-b border-slate-700 pb-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <i className="ph ph-scan text-4xl text-blue-500"></i>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white tracking-tight">Line Scan Master</h1>
+                                    <p className="text-slate-400 text-sm">線掃描同步計算實驗室 | V3.0 物理引擎版</p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-800 p-1 rounded-lg flex border border-slate-700">
+                                <button onClick={() => setMode('roller')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'roller' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><i className="ph ph-circle-notch mr-2"></i>滾輪模式</button>
+                                <button onClick={() => setMode('conveyor')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${mode === 'conveyor' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><i className="ph ph-conveyor-belt mr-2"></i>輸送帶模式</button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                        
+                        {/* LEFT: Inputs */}
+                        <div className="lg:col-span-4 space-y-6">
+                            
+                            {/* Panel 1: Motion */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg">
+                                <h2 className="text-md font-bold mb-4 flex items-center gap-2 text-blue-300 border-b border-slate-700 pb-2">
+                                    <i className="ph ph-engine"></i> 馬達與編碼器
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">{mode === 'roller' ? '滾輪轉速 (Speed)' : '輸送帶速度 (Line Speed)'}</label>
+                                        <div className="flex gap-2">
+                                            <input type="number" value={speedValue} onChange={(e) => setSpeedValue(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                            <select value={speedUnit} onChange={(e) => setSpeedUnit(e.target.value)} className="bg-slate-700 border border-slate-600 rounded px-1 text-white text-xs focus:outline-none">
+                                                {mode === 'roller' && <option value="rev_s">rev/s</option>}
+                                                {mode === 'roller' && <option value="rpm">RPM</option>}
+                                                <option value="m_min">m/min</option>
+                                                <option value="mm_s">mm/s</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-5 gap-3">
+                                        <div className="col-span-2">
+                                            <label className="block text-slate-400 text-xs mb-1">PPR (脈衝/圈)</label>
+                                            <input type="number" value={encoderPPR} onChange={(e) => setEncoderPPR(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                        </div>
+                                        <div className="col-span-3">
+                                            <label className="block text-slate-400 text-xs mb-1">Divider (Pulses Per Line)</label>
+                                            <input type="number" value={divider} onChange={(e) => setDivider(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-blue-500 focus:outline-none" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Panel 2: Physical */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                                <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl pointer-events-none ${mode === 'conveyor' ? 'from-orange-500/10' : 'from-emerald-500/10'} to-transparent`}></div>
+                                <h2 className={`text-md font-bold mb-4 flex items-center gap-2 ${mode === 'conveyor' ? 'text-orange-300' : 'text-emerald-300'} border-b border-slate-700 pb-2`}>
+                                    <i className="ph ph-ruler"></i> 物理尺寸與 Frame
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">
+                                            {mode === 'roller' ? '滾輪直徑 (Roller Diameter, mm)' : '每圈行程 (Travel/Rev, mm)'}
+                                        </label>
+                                        <input type="number" value={paramPhysical} onChange={(e) => setParamPhysical(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-slate-400 text-xs mb-1">物件長度 (mm)</label>
+                                            <input type="number" value={objectLength} onChange={(e) => setObjectLength(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-slate-400 text-xs mb-1">Frame Lines</label>
+                                            <input type="number" value={frameBufferLines} onChange={(e) => setFrameBufferLines(parseFloat(e.target.value)||0)} className={`bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:outline-none ${mode === 'conveyor' ? 'focus:border-orange-500' : 'focus:border-emerald-500'}`} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Panel 3: Camera */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg">
+                                <h2 className="text-md font-bold mb-4 flex items-center gap-2 text-purple-300 border-b border-slate-700 pb-2">
+                                    <i className="ph ph-camera"></i> 相機規格
+                                </h2>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">寬度 (Pixels)</label>
+                                        <input type="number" value={resolution} onChange={(e) => setResolution(parseFloat(e.target.value)||0)} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-slate-400 text-xs mb-1">Bit Depth</label>
+                                        <select value={bitDepth} onChange={(e) => setBitDepth(parseFloat(e.target.value))} className="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 w-full text-white font-mono text-sm focus:border-purple-500 focus:outline-none">
+                                            <option value={8}>8-bit</option>
+                                            <option value={10}>10-bit</option>
+                                            <option value={12}>12-bit</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* MIDDLE: Visuals & Debug */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                            
+                            {/* Visualizer */}
+                            <div className="bg-slate-900 rounded-xl border border-slate-800 relative overflow-hidden h-[320px] flex items-center justify-center">
+                                <div className="absolute top-3 left-3 text-slate-500 text-xs font-mono z-10">
+                                    <div>{mode === 'roller' ? 'ROLLER' : 'CONVEYOR'} SIMULATION</div>
+                                    <div>RUN: {simState.runCount}</div>
+                                </div>
+
+                                {mode === 'conveyor' && (
+                                <div className="w-full h-full relative overflow-hidden flex flex-col items-center justify-center">
+                                    {/* Sensor */}
+                                    <div className="absolute top-[80px] z-20 flex flex-col items-center">
+                                        <div className="text-[10px] text-orange-300 font-mono mb-1">DI0</div>
+                                        <div className={`w-4 h-6 bg-slate-700 border border-orange-500 rounded-b flex items-center justify-center shadow-lg transition-colors duration-75 ${simState.di0 ? 'bg-orange-500 shadow-[0_0_15px_#f59e0b]' : ''}`}>
+                                            <div className={`w-2 h-2 rounded-full ${simState.di0 ? 'bg-white' : 'bg-orange-900/50'}`}></div>
+                                        </div>
+                                        <div className="w-0.5 h-[60px] bg-orange-500/30"></div>
+                                    </div>
+
+                                    {/* Conveyor */}
+                                    <div className="relative w-full max-w-[90%] h-[40px] bg-slate-800 rounded-full border border-slate-600 mt-10 overflow-hidden">
+                                        {/* Grid: 5 Grids per Rev */}
+                                        <div ref={beltRef} className="w-full h-full" 
+                                             style={{ 
+                                                 backgroundImage: 'linear-gradient(90deg, transparent 95%, #475569 95%)', 
+                                                 backgroundSize: '5% 100%' 
+                                             }}>
+                                        </div>
+                                        {/* Item */}
+                                        <div ref={itemRef} className="absolute top-2 h-[24px] bg-emerald-600/80 rounded border border-emerald-400 flex items-center justify-center text-[10px] text-white font-mono"
+                                             style={{ width: getItemWidthPercent() + '%' }}>
+                                            ITEM
+                                        </div>
+                                    </div>
+
+                                    {/* Encoder Wheel */}
+                                    <div className="absolute right-[5%] mt-10 w-16 h-16 flex items-center justify-center">
+                                        <div ref={wheelRef} className="w-full h-full rounded-full border-4 border-slate-600 relative bg-slate-800">
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-4 bg-red-500"></div>
+                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-slate-400 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                )}
+
+                                {mode === 'roller' && (
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ top: '30px' }}>
+                                        <div className="text-[10px] text-slate-400 font-mono mb-1">DI0 (Home)</div>
+                                        <div className={`w-4 h-6 bg-slate-700 border border-slate-500 rounded-b flex items-center justify-center shadow-lg transition-colors duration-75 ${simState.di0 ? 'bg-orange-500' : ''}`}>
+                                            <div className={`w-2 h-2 rounded-full ${simState.di0 ? 'bg-white' : 'bg-red-900'}`}></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="absolute right-[40px] top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        <div className="w-2 h-2 rounded-full bg-red-500 opacity-50 animate-pulse"></div>
+                                        <span className="text-[10px] text-red-400 font-mono">CC1</span>
+                                    </div>
+
+                                    <div ref={rollerRef} className="w-[240px] h-[240px]">
+                                        <svg width="240" height="240" viewBox="0 0 240 240">
+                                            <g transform="translate(120, 120)">
+                                                <circle cx="0" cy="0" r="90" fill="#334155" stroke="#475569" strokeWidth="2" />
+                                                <circle cx="0" cy="0" r="20" fill="#1e293b" />
+                                                <line x1="0" y1="-90" x2="0" y2="90" stroke="#64748b" strokeWidth="1" strokeDasharray="5 5" />
+                                                <line x1="-90" y1="0" x2="90" y2="0" stroke="#64748b" strokeWidth="1" strokeDasharray="5 5" />
+                                                <rect x="-4" y="-94" width="8" height="12" fill="#eab308" />
+                                                {objectLength > 0 && (
+                                                    <path 
+                                                        d={`M 0,-90 A 90,90 0 ${objectArcLength > 180 ? 1 : 0},1 ${90 * Math.sin(objectArcLength * Math.PI / 180)}, ${-90 * Math.cos(objectArcLength * Math.PI / 180)}`}
+                                                        fill="none" stroke="#10b981" strokeWidth="12" strokeOpacity="0.6" transform="rotate(10)" 
+                                                    />
+                                                )}
+                                                <text x="0" y="-50" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">Roller</text>
+                                            </g>
+                                        </svg>
+                                    </div>
+                                </div>
+                                )}
+                            </div>
+
+                            {/* Frame Coverage Card */}
+                            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg flex-grow flex flex-col justify-center">
+                                <h3 className={`text-sm font-bold ${mode === 'conveyor' ? 'text-orange-300' : 'text-emerald-300'} mb-3 flex items-center justify-between`}>
+                                    <span>Frame 覆蓋分析</span>
+                                    <span className={`text-xs ${mode === 'conveyor' ? 'bg-orange-900/50 text-orange-200' : 'bg-emerald-900/50 text-emerald-200'} px-2 py-1 rounded`}>反推計算</span>
+                                </h3>
+                                <div className="flex justify-between items-center mb-3 text-sm">
+                                    <span className="text-slate-400">Y 軸解析度:</span>
+                                    <span className="font-mono text-white">{resolutionY_um.toFixed(2)} μm/line</span>
+                                </div>
+                                <div className="flex justify-between items-center mb-3 text-sm">
+                                    <span className="text-slate-400">物件 ({objectLength}mm) 需:</span>
+                                    <span className="font-mono text-yellow-300 font-bold">{Math.ceil(linesRequiredForObject).toLocaleString()} lines</span>
+                                </div>
+                                <div className="border-t border-slate-700 my-2"></div>
+                                <div className="flex justify-between items-center mb-2 text-sm">
+                                    <span className="text-slate-400">Frame ({frameBufferLines}) 覆蓋:</span>
+                                    <span className="font-mono text-white">{physicalLengthOfFrame.toFixed(2)} mm</span>
+                                </div>
+                                <div className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${physicalLengthOfFrame >= objectLength ? 'bg-green-900/30 text-green-300 border border-green-800' : 'bg-red-900/30 text-red-300 border border-red-800'}`}>
+                                    {physicalLengthOfFrame >= objectLength 
+                                        ? <><i className="ph ph-check-circle text-lg"></i> 設定足夠！</>
+                                        : <><i className="ph ph-warning text-lg"></i> Frame 太短！缺 {Math.abs(physicalLengthOfFrame - objectLength).toFixed(1)}mm</>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Results */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                            {/* Card 1: Line Rate */}
+                            <div className="bg-gradient-to-br from-blue-900/50 to-slate-800 border border-blue-800 rounded-xl p-5 shadow-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="text-blue-200 text-sm font-medium mb-1">Line Rate (掃描頻率)</div>
+                                        <div className="text-4xl font-bold text-white font-mono">
+                                            {(lineRateHz / 1000).toFixed(2)} <span className="text-lg text-blue-300">kHz</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-wave-sine text-3xl text-blue-500"></i>
+                                </div>
+                                <div className="mt-3 text-xs text-blue-200/60 bg-blue-900/30 p-2 rounded">
+                                    <div className="flex justify-between mb-1 text-blue-300">
+                                        <span>每圈線數 (PPR ÷ Div):</span>
+                                        <span className="font-mono">{encoderPPR} ÷ {divider} = {Math.round(linesPerRev).toLocaleString()}</span>
+                                    </div>
+                                    <div className="pt-1 border-t border-blue-500/30 text-blue-100 flex justify-between items-center">
+                                        <span>頻率 (Rev/s × Lines):</span>
+                                        <span className="font-mono">
+                                            {encoderRevPerSec.toFixed(2)} × {Math.round(linesPerRev).toLocaleString()} = <span className="font-bold text-white">{Math.round(lineRateHz).toLocaleString()} Hz</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card 2: Max Exposure */}
+                            <div className="bg-gradient-to-br from-purple-900/50 to-slate-800 border border-purple-800 rounded-xl p-5 shadow-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="text-purple-200 text-sm font-medium mb-1">Max Exposure (最大曝光)</div>
+                                        <div className={`text-4xl font-bold font-mono ${maxExposureUs < 5 ? 'text-red-400' : 'text-white'}`}>
+                                            {maxExposureUs.toFixed(2)} <span className="text-lg text-purple-300">μs</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-timer text-3xl text-purple-500"></i>
+                                </div>
+                                <div className="mt-3 text-xs text-purple-200/60 bg-purple-900/30 p-2 rounded">
+                                    <div className="mb-1 text-purple-200">週期算式 (物理極限):</div>
+                                    <div>1,000,000 ÷ {Math.round(lineRateHz)} Hz = <span className="font-bold text-white">{linePeriodUs.toFixed(2)} μs</span></div>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Bandwidth */}
+                            <div className="bg-gradient-to-br from-emerald-900/50 to-slate-800 border border-emerald-800 rounded-xl p-5 shadow-lg flex-grow">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="text-emerald-200 text-sm font-medium mb-1">Data Throughput</div>
+                                        <div className="text-3xl font-bold text-white font-mono">
+                                            {throughputMBps.toFixed(1)} <span className="text-lg text-emerald-300">MB/s</span>
+                                        </div>
+                                    </div>
+                                    <i className="ph ph-cable text-3xl text-emerald-500"></i>
+                                </div>
+                                <div className="border-t border-emerald-800/50 my-3"></div>
+                                <div>
+                                    <div className="text-emerald-200 text-xs font-medium mb-1">Camera Link Mode</div>
+                                    <div className={`text-xl font-bold ${clMode.color} font-mono`}>{clMode.name}</div>
+                                    <div className="text-xs text-slate-400 mt-1">{clMode.desc}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer Guide Sections */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-blue-400 font-bold text-xs mb-2">解析度定義</h3>
+                            <p className="text-slate-400 text-xs">Y 軸解析度 = (每圈行程或圓周長) / (PPR / Divider)。決定了掃描影像在運動方向上的精度。</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                            <h3 className="text-emerald-400 font-bold text-xs mb-2">Frame Height</h3>
+                            <p className="text-slate-400 text-xs">物件完整成像所需線數 = 物件長度 / 解析度。設定 Frame Buffer 時需大於此數值以免切圖。</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                             <h3 className="text-purple-400 font-bold text-xs mb-2">曝光限制</h3>
+                             <p className="text-slate-400 text-xs">Line Rate 越高，曝光時間越短 (1/Hz)。若曝光不足需增強光源或降低產線速度。</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-4 rounded border border-slate-700">
+                             <h3 className="text-yellow-400 font-bold text-xs mb-2">同步控制</h3>
+                             <p className="text-slate-400 text-xs">確保 DI0 觸發訊號與編碼器計數同步，避免影像起始位置漂移 (如上方模擬所示)。</p>
+                        </div>
+                    </div>
+
+                </div>
+            );
         }
-    }
 
-    function resetView(t){
-        if(t==='target'){
-            const c=document.getElementById('targetWrapper'); targetCanvas.width=c.clientWidth; targetCanvas.height=c.clientHeight;
-            targetScale=Math.min((targetCanvas.width-40)/targetImgObj.width,(targetCanvas.height-40)/targetImgObj.height);
-            targetOffsetX=(targetCanvas.width-targetImgObj.width*targetScale)/2;
-            targetOffsetY=(targetCanvas.height-targetImgObj.height*targetScale)/2;
-        }
-    }
-
-    function draw(){
-        if(!currentCamera||!img.complete)return;
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        
-        ctx.drawImage(img,offsetX,offsetY,img.width*scale,img.height*scale);
-        ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(0,0,canvas.width,canvas.height);
-        
-        currentCamera.params.forEach((p,i)=>{
-            const sx=p.roi.x*scale+offsetX, sy=p.roi.y*scale+offsetY, sw=p.roi.w*scale, sh=p.roi.h*scale;
-            ctx.drawImage(img,p.roi.x,p.roi.y,p.roi.w,p.roi.h,sx,sy,sw,sh);
-            
-            // Logic: Is this box active? (Either selected or hovered)
-            const isActive = (i === selectedIndex || i === hoverIndex);
-            
-            ctx.lineWidth = isActive ? 3 : 2;
-            if(isActive){
-                ctx.strokeStyle="#00ff00"; ctx.setLineDash([]);
-            } else {
-                ctx.strokeStyle="rgba(0,255,0,0.6)"; ctx.setLineDash([5,3]);
-            }
-            
-            ctx.strokeRect(sx,sy,sw,sh);
-            
-            if(isActive){
-                const l=`${p.name} ➤ ${p.cpl_setting||''}`; ctx.font="bold 14px Arial";
-                const w=ctx.measureText(l).width; ctx.fillStyle="#00ff00"; ctx.fillRect(sx,sy-24,w+10,24);
-                ctx.fillStyle="#000"; ctx.fillText(l,sx+5,sy-7);
-            }
-        });
-    }
-    
-    function drawTarget(){
-        if(!targetImgObj.complete)return;
-        targetCtx.clearRect(0,0,targetCanvas.width,targetCanvas.height);
-        targetCtx.drawImage(targetImgObj,targetOffsetX,targetOffsetY,targetImgObj.width*targetScale,targetImgObj.height*targetScale);
-    }
-
-    function updateInfoPanel(p){
-        displayedParam=p;
-        if(p){
-            elName.innerText=p.name;
-            elMapping.style.display=p.cpl_setting?'inline-block':'none';
-            if(p.cpl_setting) elMapping.innerText=t('mapped_to')+p.cpl_setting;
-            elDesc.innerHTML=getLocalizedDesc(p.desc); elDesc.style.color='#e2e8f0';
-        }else{
-            elName.innerText='--'; elMapping.style.display='none';
-            elDesc.innerHTML=`<span class="info-placeholder">${t('placeholder_desc')}</span>`;
-        }
-    }
-
-    // Events
-    canvas.addEventListener('mousedown',e=>{
-        isDragging=true;startX=e.clientX;startY=e.clientY;
-        // Check click on ROI
-        if(currentCamera && img.complete){
-            const r=canvas.getBoundingClientRect(), mx=(e.clientX-r.left-offsetX)/scale, my=(e.clientY-r.top-offsetY)/scale;
-            let clicked=-1;
-            currentCamera.params.forEach((p,i)=>{if(mx>=p.roi.x&&mx<=p.roi.x+p.roi.w&&my>=p.roi.y&&my<=p.roi.y+p.roi.h)clicked=i;});
-            if(clicked!==-1){
-                selectedIndex=clicked; // Set permanent selection
-                updateInfoPanel(currentCamera.params[clicked]);
-                draw();
-            }
-        }
-    });
-    
-    canvas.addEventListener('mousemove',e=>{
-        if(!currentCamera)return;
-        if(isDragging){offsetX+=e.clientX-startX;offsetY+=e.clientY-startY;startX=e.clientX;startY=e.clientY;draw();return;}
-        
-        const r=canvas.getBoundingClientRect(), mx=(e.clientX-r.left-offsetX)/scale, my=(e.clientY-r.top-offsetY)/scale;
-        let f=-1; currentCamera.params.forEach((p,i)=>{if(mx>=p.roi.x&&mx<=p.roi.x+p.roi.w&&my>=p.roi.y&&my<=p.roi.y+p.roi.h)f=i;});
-        
-        if(f!==hoverIndex){
-            hoverIndex=f;
-            draw();
-            // If hovering over something new, show it temporarily. If leaving, revert to selected.
-            if(f!==-1) updateInfoPanel(currentCamera.params[f]);
-            else if(selectedIndex!==-1) updateInfoPanel(currentCamera.params[selectedIndex]);
-            else updateInfoPanel(null);
-        }
-    });
-    
-    targetCanvas.addEventListener('mousedown',e=>{isDraggingTarget=true;startXTarget=e.clientX;startYTarget=e.clientY;});
-    targetCanvas.addEventListener('mousemove',e=>{
-        if(isDraggingTarget){targetOffsetX+=e.clientX-startXTarget;targetOffsetY+=e.clientY-startYTarget;startXTarget=e.clientX;startYTarget=e.clientY;drawTarget();}
-    });
-    window.addEventListener('mouseup',()=>{isDragging=false;isDraggingTarget=false;});
-    
-    window.handleZoom=e=>{
-        e.preventDefault(); if(!img.complete)return;
-        const r=canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
-        const ix=(mx-offsetX)/scale, iy=(my-offsetY)/scale;
-        const ns=scale*(e.deltaY>0?0.9:1.1); if(ns<0.1||ns>10)return;
-        scale=ns; offsetX=mx-ix*scale; offsetY=my-iy*scale; draw();
-    };
-    window.handleTargetZoom=e=>{
-        e.preventDefault(); if(!targetImgObj.complete)return;
-        const r=targetCanvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
-        const ix=(mx-targetOffsetX)/targetScale, iy=(my-targetOffsetY)/targetScale;
-        const ns=targetScale*(e.deltaY>0?0.9:1.1); if(ns<0.1||ns>10)return;
-        targetScale=ns; targetOffsetX=mx-ix*targetScale; targetOffsetY=my-iy*targetScale; drawTarget();
-    };
-    window.addEventListener('resize',()=>{if(currentCamera){resetView('source');draw();resetView('target');drawTarget();}});
-    window.changeLanguage=changeLanguage;
-    
-    init();
-</script>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
