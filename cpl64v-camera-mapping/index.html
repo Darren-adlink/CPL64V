@@ -60,9 +60,7 @@
         .right-container { flex: 1; display: flex; flex-direction: column; background: #0f172a; overflow: hidden; }
         .images-row { flex: 1; display: flex; overflow: hidden; border-bottom: 1px solid #334155; }
         .demo-badge { background: #f59e0b; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 10px; display: none; }
-        
-        /* 訪客計數器容器 */
-        .visitor-count-container { font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 20px; background: #334155; border: 1px solid #475569;}
+        .visitor-count { font-size: 12px; color: #94a3b8; background: #334155; padding: 4px 10px; border-radius: 20px; border: 1px solid #475569; display: flex; align-items: center; gap: 5px; }
         .visitor-badge { display: block; height: 20px; }
 
         .lang-select { background: #334155; color: white; border: 1px solid #475569; padding: 4px 8px; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; }
@@ -73,17 +71,14 @@
 <body>
 
 <header>
-    <h1>🎯 CPL64V Portal <span id="demoBadge" class="demo-badge">Demo</span></h1>
+    <h1>🎯 CPL64V Portal <span style="font-size:14px; color:#94a3b8; margin-left:5px;">(前台瀏覽)</span> <span id="demoBadge" class="demo-badge">Demo</span></h1>
     <div style="display:flex; align-items:center; gap:15px;">
-        
         <!-- 訪客計數器 (無 Firebase 版本 - Badge Only) -->
         <div class="visitor-count-container" title="Total Views">
-            <span>Views:</span>
             <div id="visitorBadge">Loading...</div>
         </div>
 
         <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:12px; color:#94a3b8;">v8.1 Cleaned</span>
             <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
                 <option value="en">English</option>
                 <option value="zh_TW" selected>繁體中文</option>
@@ -96,8 +91,6 @@
 </header>
 
 <div class="main-container">
-    
-    <!-- 1. 左側選單 -->
     <div class="sidebar-list">
         <div class="filter-section">
             <div>
@@ -148,29 +141,19 @@
     </div>
 </div>
 
-<!-- Simple Script for Visitor Badge (No Firebase) -->
 <script>
     // 自動產生計數器圖片
     function initVisitorBadge() {
         const container = document.getElementById('visitorBadge');
-        container.innerHTML = ''; // Clear loading
-        
-        // 取得當前網址的主機名稱 (例如: cpl64v.vercel.app)
-        // 注意：本地開發 (localhost) 或 預覽網址 也會被計算
-        // 使用 hits.seeyoufarm.com 免費服務
+        container.innerHTML = ''; 
         const currentUrl = window.location.host || 'local-dev';
         const targetUrl = `https://${currentUrl}/`;
-        
         const img = document.createElement('img');
         img.className = 'visitor-badge';
-        // 使用藍色主題，標題是 "visits"
         img.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(targetUrl)}&count_bg=%232563EB&title_bg=%231E293B&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false`;
         img.alt = "Visitor Count";
-        
         container.appendChild(img);
     }
-    
-    // 初始化計數器
     initVisitorBadge();
 </script>
 
@@ -195,7 +178,6 @@
         const el=document.querySelector('.list-empty span');if(el&&!ms.value)el.innerText=t('hint_select');
         const ld=document.getElementById('loading');if(ld.classList.contains('active')&&!currentCamera)ld.innerText=t('loading_text');
         
-        // Dynamic Label Update
         const lblSource = document.getElementById('lblSource');
         if (currentCamera) {
              lblSource.innerText = `📷 Source: ${currentCamera.brand} - ${currentCamera.model}`;
@@ -215,7 +197,9 @@
     const elName=document.getElementById('pNameDisplay'), elMapping=document.getElementById('pMappingDisplay'), elDesc=document.getElementById('pDescDisplay');
     
     let fullDB={}, hierarchy={}, currentCamera=null, img=new Image(), targetImgObj=new Image();
-    let scale=1, offsetX=0, offsetY=0, targetScale=1, targetOffsetX=0, targetOffsetY=0, hoverIndex=-1;
+    let scale=1, offsetX=0, offsetY=0, targetScale=1, targetOffsetX=0, targetOffsetY=0;
+    // New State: selectedIndex (permanent) vs hoverIndex (transient)
+    let hoverIndex=-1, selectedIndex=-1; 
     let isDragging=false, startX=0, startY=0, isDraggingTarget=false, startXTarget=0, startYTarget=0;
 
     async function init(){
@@ -289,7 +273,11 @@
         img.onload=()=>{
             const c=document.getElementById('canvasWrapper'); canvas.width=c.clientWidth; canvas.height=c.clientHeight;
             applyAutoZoomAndFocus(); loading.classList.remove('active'); draw();
-            if(currentCamera.params.length) updateInfoPanel(currentCamera.params[0]);
+            
+            // Set initial selection
+            if (currentCamera.params && currentCamera.params.length > 0) {
+                updateInfoPanel(currentCamera.params[0]);
+            }
         };
         img.onerror=()=>{loading.innerText="Error";}; img.src=d.imageUrl;
 
@@ -299,8 +287,9 @@
     }
 
     function applyAutoZoomAndFocus(){
-        const c=document.getElementById('canvasWrapper');
-        if(canvas.width!==c.clientWidth||canvas.height!==c.clientHeight){canvas.width=c.clientWidth;canvas.height=c.clientHeight;}
+        const container = document.getElementById('canvasWrapper');
+        if(canvas.width!==container.clientWidth||canvas.height!==container.clientHeight){canvas.width=container.clientWidth;canvas.height=container.clientHeight;}
+
         if(currentCamera.params.length){
             const p=currentCamera.params[0].roi;
             const targetMinSide = 200;
@@ -314,11 +303,15 @@
             
             offsetX=(canvas.width/2)-((p.x+p.w/2)*scale);
             offsetY=(canvas.height/2)-((p.y+p.h/2)*scale);
-            hoverIndex=0;
+            
+            // Set initial selected index
+            selectedIndex = 0;
+            hoverIndex = -1;
         }else{
             scale=Math.min((canvas.width-40)/img.width,(canvas.height-40)/img.height);
             offsetX=(canvas.width-img.width*scale)/2; offsetY=(canvas.height-img.height*scale)/2;
-            hoverIndex=-1;
+            selectedIndex = -1;
+            hoverIndex = -1;
         }
     }
 
@@ -334,22 +327,30 @@
     function draw(){
         if(!currentCamera||!img.complete)return;
         ctx.clearRect(0,0,canvas.width,canvas.height);
+        
         ctx.drawImage(img,offsetX,offsetY,img.width*scale,img.height*scale);
         ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        
         currentCamera.params.forEach((p,i)=>{
             const sx=p.roi.x*scale+offsetX, sy=p.roi.y*scale+offsetY, sw=p.roi.w*scale, sh=p.roi.h*scale;
             ctx.drawImage(img,p.roi.x,p.roi.y,p.roi.w,p.roi.h,sx,sy,sw,sh);
-            const h=i===hoverIndex;
-            ctx.lineWidth=h?3:2; ctx.strokeStyle=h?"#00ff00":"rgba(255,255,255,0.5)"; ctx.setLineDash(h?[]:[5,3]);
+            
+            // Logic: Is this box active? (Either selected or hovered)
+            const isActive = (i === selectedIndex || i === hoverIndex);
+            
+            ctx.lineWidth = isActive ? 3 : 2;
+            if(isActive){
+                ctx.strokeStyle="#00ff00"; ctx.setLineDash([]);
+            } else {
+                ctx.strokeStyle="rgba(0,255,0,0.6)"; ctx.setLineDash([5,3]);
+            }
+            
             ctx.strokeRect(sx,sy,sw,sh);
-            if(h){
-                const label = `${p.name} ➤ ${p.cpl_setting || ''}`;
-                ctx.font = "bold 14px Arial"; 
-                const txtW = ctx.measureText(label).width;
-                ctx.fillStyle = "#00ff00";
-                ctx.fillRect(sx, sy - 24, txtW + 10, 24);
-                ctx.fillStyle = "#000";
-                ctx.fillText(label, sx + 5, sy - 7);
+            
+            if(isActive){
+                const l=`${p.name} ➤ ${p.cpl_setting||''}`; ctx.font="bold 14px Arial";
+                const w=ctx.measureText(l).width; ctx.fillStyle="#00ff00"; ctx.fillRect(sx,sy-24,w+10,24);
+                ctx.fillStyle="#000"; ctx.fillText(l,sx+5,sy-7);
             }
         });
     }
@@ -374,14 +375,38 @@
     }
 
     // Events
-    canvas.addEventListener('mousedown',e=>{isDragging=true;startX=e.clientX;startY=e.clientY;});
+    canvas.addEventListener('mousedown',e=>{
+        isDragging=true;startX=e.clientX;startY=e.clientY;
+        // Check click on ROI
+        if(currentCamera && img.complete){
+            const r=canvas.getBoundingClientRect(), mx=(e.clientX-r.left-offsetX)/scale, my=(e.clientY-r.top-offsetY)/scale;
+            let clicked=-1;
+            currentCamera.params.forEach((p,i)=>{if(mx>=p.roi.x&&mx<=p.roi.x+p.roi.w&&my>=p.roi.y&&my<=p.roi.y+p.roi.h)clicked=i;});
+            if(clicked!==-1){
+                selectedIndex=clicked; // Set permanent selection
+                updateInfoPanel(currentCamera.params[clicked]);
+                draw();
+            }
+        }
+    });
+    
     canvas.addEventListener('mousemove',e=>{
         if(!currentCamera)return;
         if(isDragging){offsetX+=e.clientX-startX;offsetY+=e.clientY-startY;startX=e.clientX;startY=e.clientY;draw();return;}
+        
         const r=canvas.getBoundingClientRect(), mx=(e.clientX-r.left-offsetX)/scale, my=(e.clientY-r.top-offsetY)/scale;
         let f=-1; currentCamera.params.forEach((p,i)=>{if(mx>=p.roi.x&&mx<=p.roi.x+p.roi.w&&my>=p.roi.y&&my<=p.roi.y+p.roi.h)f=i;});
-        if(f!==hoverIndex){hoverIndex=f;draw();if(f!==-1)updateInfoPanel(currentCamera.params[f]);}
+        
+        if(f!==hoverIndex){
+            hoverIndex=f;
+            draw();
+            // If hovering over something new, show it temporarily. If leaving, revert to selected.
+            if(f!==-1) updateInfoPanel(currentCamera.params[f]);
+            else if(selectedIndex!==-1) updateInfoPanel(currentCamera.params[selectedIndex]);
+            else updateInfoPanel(null);
+        }
     });
+    
     targetCanvas.addEventListener('mousedown',e=>{isDraggingTarget=true;startXTarget=e.clientX;startYTarget=e.clientY;});
     targetCanvas.addEventListener('mousemove',e=>{
         if(isDraggingTarget){targetOffsetX+=e.clientX-startXTarget;targetOffsetY+=e.clientY-startYTarget;startXTarget=e.clientX;startYTarget=e.clientY;drawTarget();}
